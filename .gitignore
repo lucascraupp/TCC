@@ -1,7 +1,9 @@
 # Created by https://www.toptal.com/developers/gitignore/api/visualstudiocode,visualstudio,python,jupyternotebooks
 # Edit at https://www.toptal.com/developers/gitignore?templates=visualstudiocode,visualstudio,python,jupyternotebooks
 
-*/resources
+*/resources/datalake/*
+*/resources/mysql
+*/resources/solar_usines.json
 
 ### JupyterNotebooks ###
 # gitignore template for Jupyter Notebooks
