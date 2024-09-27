@@ -3,7 +3,7 @@
 
 */resources/datalake/*
 */resources/mysql
-*/resources/solar_usines.json
+*/resources/solar_plants.json
 *.bak
 
 ### JupyterNotebooks ###
