@@ -4,6 +4,7 @@
 */resources/datalake/*
 */resources/mysql
 */resources/solar_usines.json
+*.bak
 
 ### JupyterNotebooks ###
 # gitignore template for Jupyter Notebooks
