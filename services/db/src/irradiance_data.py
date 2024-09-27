@@ -1,3 +1,4 @@
+import json
 import math
 import os
 
@@ -11,6 +12,7 @@ HOST = os.environ["DB_HOST"]
 USER = os.environ["DB_USER"]
 PASSWORD = os.environ["DB_PASSWORD"]
 DATABASE = os.environ["DB_DATABASE"]
+USINES_PARAM = json.load(open("services/resources/solar_usines.json"))
 
 
 # Função otimizada para buscar IDs e evitar repetidas consultas ao banco de dados
@@ -313,17 +315,24 @@ def get_location(solar_usine: str) -> Location:
 
 
 def get_clear_sky(solar_usine: str, date: pd.Timestamp) -> pd.Series:
-    loc = get_location(solar_usine)
+    loc = USINES_PARAM[solar_usine]["location"]
 
     times = pd.date_range(
         start=date,
         end=date + pd.Timedelta(days=1),
         freq="10min",
         inclusive="left",
-        tz=loc.tz,
+        tz=loc["tz"],
     )
 
-    clearsky = loc.get_clearsky(times)
+    location = Location(
+        latitude=loc["latitude"],
+        longitude=loc["longitude"],
+        tz=loc["tz"],
+        altitude=loc["altitude"],
+    )
+
+    clearsky = location.get_clearsky(times)
     clearsky.index = pd.to_datetime(clearsky.index)
     clearsky.index = clearsky.index.tz_localize(None)
 
