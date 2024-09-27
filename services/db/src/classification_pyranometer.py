@@ -6,13 +6,13 @@ import pandas as pd
 from joblib import Parallel, delayed
 from pvlib.location import Location
 
-USINES_PARAM = json.load(open("services/resources/solar_usines.json"))
+PLANTS_PARAM = json.load(open("services/resources/solar_plants.json"))
 
 
 def get_data(
-    solar_usine: str, park: str, type_data: str, begin: pd.Timestamp, end: pd.Timestamp
+    solar_plant: str, park: str, type_data: str, begin: pd.Timestamp, end: pd.Timestamp
 ) -> pd.DataFrame:
-    data = pd.read_parquet(USINES_PARAM[solar_usine][type_data])
+    data = pd.read_parquet(PLANTS_PARAM[solar_plant][type_data])
     data = data.set_index("Timestamp")
     data = data.loc[begin:end]
 
@@ -24,8 +24,8 @@ def get_data(
     return data
 
 
-def get_clear_sky(solar_usine: str, date: pd.Timestamp) -> pd.Series:
-    loc = USINES_PARAM[solar_usine]["location"]
+def get_clear_sky(solar_plant: str, date: pd.Timestamp) -> pd.Series:
+    loc = PLANTS_PARAM[solar_plant]["location"]
 
     times = pd.date_range(
         start=date,
@@ -50,9 +50,9 @@ def get_clear_sky(solar_usine: str, date: pd.Timestamp) -> pd.Series:
 
 
 def calculate_period_limits(
-    solar_usine: str, date: pd.Timestamp
+    solar_plant: str, date: pd.Timestamp
 ) -> tuple[dict[str, tuple], tuple]:
-    clearsky = get_clear_sky(solar_usine, date)
+    clearsky = get_clear_sky(solar_plant, date)
 
     begin_irradiance = (clearsky > 0).idxmax()
     end_irradiance = (clearsky > 0).iloc[::-1].idxmax()
@@ -87,9 +87,9 @@ def calculate_period_limits(
 
 
 def sun_filter(
-    solar_usine: str, irradiance: pd.DataFrame, date: pd.Timestamp, n_jobs: int = -1
+    solar_plant: str, irradiance: pd.DataFrame, date: pd.Timestamp, n_jobs: int = -1
 ) -> pd.DataFrame:
-    limits, _ = calculate_period_limits(solar_usine, date)
+    limits, _ = calculate_period_limits(solar_plant, date)
 
     mask = (limits["morning"][0] <= irradiance.index) & (
         irradiance.index <= limits["afternoon"][1]
@@ -234,10 +234,10 @@ def classify_period_with_irradiance(
 
 
 def get_classification(
-    solar_usine: str, park: str, begin: pd.Timestamp, end: pd.Timestamp
+    solar_plant: str, park: str, begin: pd.Timestamp, end: pd.Timestamp
 ) -> pd.DataFrame:
-    gti = get_data(solar_usine, park, "gti", begin, end)
-    ghi = get_data(solar_usine, park, "ghi", begin, end)
+    gti = get_data(solar_plant, park, "gti", begin, end)
+    ghi = get_data(solar_plant, park, "ghi", begin, end)
 
     classification = pd.DataFrame(
         columns=(gti.columns.to_list() + ghi.columns.to_list())
@@ -246,10 +246,10 @@ def get_classification(
     for date in pd.date_range(begin, end, freq="D"):
         gti_day = gti.loc[gti.index.date == date.date()]
         ghi_day = ghi.loc[ghi.index.date == date.date()]
-        gti_day = sun_filter(solar_usine, gti_day, date)
-        ghi_day = sun_filter(solar_usine, ghi_day, date)
+        gti_day = sun_filter(solar_plant, gti_day, date)
+        ghi_day = sun_filter(solar_plant, ghi_day, date)
 
-        irradiance_limits, ghi_limits = calculate_period_limits(solar_usine, date)
+        irradiance_limits, ghi_limits = calculate_period_limits(solar_plant, date)
 
         for period in irradiance_limits.values():
             gti_filtered = filter_data(gti_day, ghi_limits, period)
@@ -279,8 +279,8 @@ if __name__ == "__main__":
     begin = pd.Timestamp("2021-01-01")
     end = pd.Timestamp("2021-01-01 23:59:59")
 
-    for usine in USINES_PARAM:
-        for park in USINES_PARAM[usine]["parks"]:
-            get_classification(usine, park, begin, end)
+    for plant in PLANTS_PARAM:
+        for park in PLANTS_PARAM[plant]["parks"]:
+            get_classification(plant, park, begin, end)
             break
         break

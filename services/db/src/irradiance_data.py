@@ -12,7 +12,7 @@ HOST = os.environ["DB_HOST"]
 USER = os.environ["DB_USER"]
 PASSWORD = os.environ["DB_PASSWORD"]
 DATABASE = os.environ["DB_DATABASE"]
-USINES_PARAM = json.load(open("services/resources/solar_usines.json"))
+PLANTS_PARAM = json.load(open("services/resources/solar_plants.json"))
 
 
 # Função otimizada para buscar IDs e evitar repetidas consultas ao banco de dados
@@ -24,56 +24,56 @@ def get_cached_id(cache, key, query, cursor, params) -> int | None:
     return cache[key]
 
 
-def populate_solar_usine(
-    solar_usine: str, cursor: pymysql.cursors.Cursor, cache: dict
+def populate_solar_plant(
+    solar_plant: str, cursor: pymysql.cursors.Cursor, cache: dict
 ) -> None:
-    name = os.environ[solar_usine]
-    key = f"solar_usine_{solar_usine}"
+    name = os.environ[solar_plant]
+    key = f"solar_plant_{solar_plant}"
 
     if (
         get_cached_id(
             cache,
             key,
-            "SELECT id_solar_usine FROM solar_usine WHERE nickname = %s",
+            "SELECT id_solar_plant FROM solar_plant WHERE nickname = %s",
             cursor,
-            (solar_usine,),
+            (solar_plant,),
         )
         is None
     ):
         cursor.execute(
-            "INSERT INTO solar_usine (name, nickname) VALUES (%s, %s)",
-            (name, solar_usine),
+            "INSERT INTO solar_plant (name, nickname) VALUES (%s, %s)",
+            (name, solar_plant),
         )
         cursor.execute("SELECT LAST_INSERT_ID()")
         cache[key] = cursor.fetchone()[0]
 
 
 def populate_park(
-    solar_usine: str, park: str, cursor: pymysql.cursors.Cursor, cache: dict
+    solar_plant: str, park: str, cursor: pymysql.cursors.Cursor, cache: dict
 ) -> None:
-    id_solar_usine = get_cached_id(
+    id_solar_plant = get_cached_id(
         cache,
-        f"solar_usine_{solar_usine}",
-        "SELECT id_solar_usine FROM solar_usine WHERE nickname = %s",
+        f"solar_plant_{solar_plant}",
+        "SELECT id_solar_plant FROM solar_plant WHERE nickname = %s",
         cursor,
-        (solar_usine,),
+        (solar_plant,),
     )
     name = os.environ[park]
-    key = f"park_{park}_{id_solar_usine}"
+    key = f"park_{park}_{id_solar_plant}"
 
     if (
         get_cached_id(
             cache,
             key,
-            "SELECT id_park FROM park WHERE nickname = %s AND id_solar_usine = %s",
+            "SELECT id_park FROM park WHERE nickname = %s AND id_solar_plant = %s",
             cursor,
-            (park, id_solar_usine),
+            (park, id_solar_plant),
         )
         is None
     ):
         cursor.execute(
-            "INSERT INTO park (id_solar_usine, name, nickname) VALUES (%s, %s, %s)",
-            (id_solar_usine, name, park),
+            "INSERT INTO park (id_solar_plant, name, nickname) VALUES (%s, %s, %s)",
+            (id_solar_plant, name, park),
         )
         cursor.execute("SELECT LAST_INSERT_ID()")
         cache[key] = cursor.fetchone()[0]
@@ -103,25 +103,25 @@ def populate_sensor(
 
 
 def populate_sensor_per_park(
-    solar_usine: str,
+    solar_plant: str,
     park: str,
     sensor: str,
     cursor: pymysql.cursors.Cursor,
     cache: dict,
 ) -> None:
-    id_solar_usine = get_cached_id(
+    id_solar_plant = get_cached_id(
         cache,
-        f"solar_usine_{solar_usine}",
-        "SELECT id_solar_usine FROM solar_usine WHERE nickname = %s",
+        f"solar_plant_{solar_plant}",
+        "SELECT id_solar_plant FROM solar_plant WHERE nickname = %s",
         cursor,
-        (solar_usine,),
+        (solar_plant,),
     )
     id_park = get_cached_id(
         cache,
-        f"park_{park}_{id_solar_usine}",
-        "SELECT id_park FROM park WHERE nickname = %s AND id_solar_usine = %s",
+        f"park_{park}_{id_solar_plant}",
+        "SELECT id_park FROM park WHERE nickname = %s AND id_solar_plant = %s",
         cursor,
-        (park, id_solar_usine),
+        (park, id_solar_plant),
     )
     id_sensor = get_cached_id(
         cache,
@@ -182,7 +182,7 @@ def get_id_timestamp(datetime: list, cursor: pymysql.cursors.Cursor) -> list:
 
 def populate_data(
     timestamp: list,
-    solar_usine: str,
+    solar_plant: str,
     park: str,
     sensor: str,
     status: str,
@@ -190,19 +190,19 @@ def populate_data(
     cursor: pymysql.cursors.Cursor,
     cache: dict,
 ) -> None:
-    id_solar_usine = get_cached_id(
+    id_solar_plant = get_cached_id(
         cache,
-        f"solar_usine_{solar_usine}",
-        "SELECT id_solar_usine FROM solar_usine WHERE nickname = %s",
+        f"solar_plant_{solar_plant}",
+        "SELECT id_solar_plant FROM solar_plant WHERE nickname = %s",
         cursor,
-        (solar_usine,),
+        (solar_plant,),
     )
     id_park = get_cached_id(
         cache,
-        f"park_{park}_{id_solar_usine}",
-        "SELECT id_park FROM park WHERE nickname = %s AND id_solar_usine = %s",
+        f"park_{park}_{id_solar_plant}",
+        "SELECT id_park FROM park WHERE nickname = %s AND id_solar_plant = %s",
         cursor,
-        (park, id_solar_usine),
+        (park, id_solar_plant),
     )
     id_sensor = get_cached_id(
         cache,
@@ -244,7 +244,7 @@ def populate_db(
 
         # Divisão do sensor
         split_sensor = sensor.split("\\")
-        solar_usine = split_sensor[0]
+        solar_plant = split_sensor[0]
         park = split_sensor[1]
         type_sensor = split_sensor[2]  # Aqui estamos usando o tipo do sensor
         name = "\\".join(split_sensor[3:]) if len(split_sensor) > 3 else type_sensor
@@ -252,15 +252,15 @@ def populate_db(
         print(f"Populando o sensor {name} com tipo {type_sensor}...")
 
         # Popula as outras tabelas
-        populate_solar_usine(solar_usine, cursor, cache)
-        populate_park(solar_usine, park, cursor, cache)
+        populate_solar_plant(solar_plant, cursor, cache)
+        populate_park(solar_plant, park, cursor, cache)
         populate_sensor(name, type_sensor, cursor, cache)
-        populate_sensor_per_park(solar_usine, park, name, cursor, cache)
+        populate_sensor_per_park(solar_plant, park, name, cursor, cache)
         populate_status(status, cursor, cache)
 
         # Popula a tabela data
         populate_data(
-            datetime, solar_usine, park, name, status, data_sensor, cursor, cache
+            datetime, solar_plant, park, name, status, data_sensor, cursor, cache
         )
 
 
@@ -283,8 +283,8 @@ def populate(data: pd.DataFrame, status: str) -> None:
 # ------------------------------------------------------------------------------------
 
 
-def read_data(solar_usine: str) -> tuple[pd.DataFrame, pd.DataFrame]:
-    path = f"services/resources/datalake/{solar_usine}"
+def read_data(solar_plant: str) -> tuple[pd.DataFrame, pd.DataFrame]:
+    path = f"services/resources/datalake/{solar_plant}"
 
     gti = pd.read_parquet(f"{path}/gti.parquet")
     ghi = pd.read_parquet(f"{path}/ghi.parquet")
@@ -298,8 +298,8 @@ def read_data(solar_usine: str) -> tuple[pd.DataFrame, pd.DataFrame]:
     return gti, ghi
 
 
-def get_location(solar_usine: str) -> Location:
-    match (solar_usine):
+def get_location(solar_plant: str) -> Location:
+    match (solar_plant):
         case "CFPA":
             latitude = -17.22129
             longitude = -47.08851
@@ -314,8 +314,8 @@ def get_location(solar_usine: str) -> Location:
     return Location(latitude, longitude, tz=tz, altitude=altitude)
 
 
-def get_clear_sky(solar_usine: str, date: pd.Timestamp) -> pd.Series:
-    loc = USINES_PARAM[solar_usine]["location"]
+def get_clear_sky(solar_plant: str, date: pd.Timestamp) -> pd.Series:
+    loc = PLANTS_PARAM[solar_plant]["location"]
 
     times = pd.date_range(
         start=date,
@@ -339,8 +339,8 @@ def get_clear_sky(solar_usine: str, date: pd.Timestamp) -> pd.Series:
     return clearsky["ghi"]
 
 
-def calculate_period_limits(solar_usine: str, date: pd.Timestamp) -> dict[str, tuple]:
-    clearsky = get_clear_sky(solar_usine, date)
+def calculate_period_limits(solar_plant: str, date: pd.Timestamp) -> dict[str, tuple]:
+    clearsky = get_clear_sky(solar_plant, date)
 
     begin_irradiance = (clearsky > 0).idxmax()
     end_irradiance = (clearsky > 0).iloc[::-1].idxmax()
@@ -371,9 +371,9 @@ def calculate_period_limits(solar_usine: str, date: pd.Timestamp) -> dict[str, t
 
 
 def process_day(
-    solar_usine: str, date: pd.Timestamp, irradiance: pd.DataFrame
+    solar_plant: str, date: pd.Timestamp, irradiance: pd.DataFrame
 ) -> pd.DataFrame:
-    limits = calculate_period_limits(solar_usine, date)
+    limits = calculate_period_limits(solar_plant, date)
     irradiance_day = irradiance[irradiance.index.date == date.date()]
 
     mask = (limits["morning"][0] <= irradiance_day.index) & (
@@ -386,7 +386,7 @@ def process_day(
 
 
 def sun_filter(
-    solar_usine: str, irradiance: pd.DataFrame, n_jobs: int = -1
+    solar_plant: str, irradiance: pd.DataFrame, n_jobs: int = -1
 ) -> pd.DataFrame:
     begin = irradiance.index.min()
     end = irradiance.index.max()
@@ -396,7 +396,7 @@ def sun_filter(
 
     # Processar os dias em paralelo usando joblib
     irradiance_filtered_list = Parallel(n_jobs=n_jobs)(
-        delayed(process_day)(solar_usine, date, irradiance) for date in dates
+        delayed(process_day)(solar_plant, date, irradiance) for date in dates
     )
 
     # Concatenar os resultados no final
@@ -405,15 +405,15 @@ def sun_filter(
     return irradiance_filtered
 
 
-def populate_irradiance_data(solar_usine: str, moving_averange: bool) -> None:
+def populate_irradiance_data(solar_plant: str, moving_averange: bool) -> None:
     status = "Tratado" if moving_averange else "Original"
 
     print("Iniciando o tratamento dos dados...")
 
-    gti, ghi = read_data(solar_usine)
+    gti, ghi = read_data(solar_plant)
 
-    gti = sun_filter(solar_usine, gti)
-    ghi = sun_filter(solar_usine, ghi)
+    gti = sun_filter(solar_plant, gti)
+    ghi = sun_filter(solar_plant, ghi)
 
     if moving_averange:
         window = 11

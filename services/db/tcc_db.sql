@@ -54,13 +54,13 @@ COLLATE = utf8mb4_0900_ai_ci;
 
 
 -- -----------------------------------------------------
--- Table `tcc_db`.`solar_usine`
+-- Table `tcc_db`.`solar_plant`
 -- -----------------------------------------------------
-CREATE TABLE IF NOT EXISTS `tcc_db`.`solar_usine` (
-  `id_solar_usine` INT NOT NULL AUTO_INCREMENT,
+CREATE TABLE IF NOT EXISTS `tcc_db`.`solar_plant` (
+  `id_solar_plant` INT NOT NULL AUTO_INCREMENT,
   `name` VARCHAR(45) NOT NULL,
   `nickname` VARCHAR(45) NOT NULL,
-  PRIMARY KEY (`id_solar_usine`),
+  PRIMARY KEY (`id_solar_plant`),
   UNIQUE INDEX `name_UNIQUE` (`name` ASC) VISIBLE,
   UNIQUE INDEX `nickname_UNIQUE` (`nickname` ASC) VISIBLE)
 ENGINE = InnoDB
@@ -74,16 +74,16 @@ COLLATE = utf8mb4_0900_ai_ci;
 -- -----------------------------------------------------
 CREATE TABLE IF NOT EXISTS `tcc_db`.`park` (
   `id_park` INT NOT NULL AUTO_INCREMENT,
-  `id_solar_usine` INT NOT NULL,
+  `id_solar_plant` INT NOT NULL,
   `name` VARCHAR(45) NOT NULL,
   `nickname` VARCHAR(45) NOT NULL,
   PRIMARY KEY (`id_park`),
-  INDEX `fk_park_solar_usine_idx` (`id_solar_usine` ASC) VISIBLE,
-  CONSTRAINT `fk_park_solar_usine`
-    FOREIGN KEY (`id_solar_usine`)
-    REFERENCES `tcc_db`.`solar_usine` (`id_solar_usine`)
-    ON DELETE RESTRICT
-    ON UPDATE RESTRICT)
+  INDEX `fk_park_solar_plant1_idx` (`id_solar_plant` ASC) VISIBLE,
+  CONSTRAINT `fk_park_solar_plant1`
+    FOREIGN KEY (`id_solar_plant`)
+    REFERENCES `tcc_db`.`solar_plant` (`id_solar_plant`)
+    ON DELETE NO ACTION
+    ON UPDATE NO ACTION)
 ENGINE = InnoDB
 AUTO_INCREMENT = 73
 DEFAULT CHARACTER SET = utf8mb4
