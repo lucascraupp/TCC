@@ -143,6 +143,32 @@ DEFAULT CHARACTER SET = utf8mb4
 COLLATE = utf8mb4_0900_ai_ci;
 
 
+-- -----------------------------------------------------
+-- Table `tcc_db`.`classification`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `tcc_db`.`classification` (
+  `id_park` INT NOT NULL,
+  `id_sensor` INT NOT NULL,
+  `id_datetime` INT NOT NULL,
+  `status` VARCHAR(45) NOT NULL,
+  PRIMARY KEY (`id_park`, `id_sensor`, `id_datetime`),
+  INDEX `fk_sensor_per_park_has_datetime_datetime1_idx` (`id_datetime` ASC) VISIBLE,
+  INDEX `fk_sensor_per_park_has_datetime_sensor_per_park1_idx` (`id_sensor` ASC, `id_park` ASC) VISIBLE,
+  CONSTRAINT `fk_sensor_per_park_has_datetime_sensor_per_park1`
+    FOREIGN KEY (`id_sensor` , `id_park`)
+    REFERENCES `tcc_db`.`sensor_per_park` (`id_sensor` , `id_park`)
+    ON DELETE NO ACTION
+    ON UPDATE NO ACTION,
+  CONSTRAINT `fk_sensor_per_park_has_datetime_datetime1`
+    FOREIGN KEY (`id_datetime`)
+    REFERENCES `tcc_db`.`datetime` (`id_datetime`)
+    ON DELETE NO ACTION
+    ON UPDATE NO ACTION)
+ENGINE = InnoDB
+DEFAULT CHARACTER SET = utf8mb4
+COLLATE = utf8mb4_0900_ai_ci;
+
+
 SET SQL_MODE=@OLD_SQL_MODE;
 SET FOREIGN_KEY_CHECKS=@OLD_FOREIGN_KEY_CHECKS;
 SET UNIQUE_CHECKS=@OLD_UNIQUE_CHECKS;
