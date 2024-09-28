@@ -17,8 +17,12 @@ def get_data(
     data = data.loc[begin:end]
 
     data = data.filter(like=park, axis=1)
-
     data = data.apply(pd.to_numeric, errors="coerce")
+
+    window = 11
+    data = data.rolling(window=window).mean()
+    data = data.shift(-((window - 1) // 2))
+
     data = data.fillna(0)
 
     return data
