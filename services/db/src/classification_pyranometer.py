@@ -14,7 +14,9 @@ def get_data(
 ) -> pd.DataFrame:
     data = pd.read_parquet(PLANTS_PARAM[solar_plant][type_data])
     data = data.set_index("Timestamp")
-    data = data.loc[begin:end]
+    data.index = pd.to_datetime(data.index)
+
+    data = data.loc[(begin.date() <= data.index.date) & (data.index.date <= end.date())]
 
     data = data.filter(like=park, axis=1)
     data = data.apply(pd.to_numeric, errors="coerce")
@@ -113,7 +115,7 @@ def remove_sensors_without_data_and_variance(
     irradiance = irradiance.loc[:, irradiance_limited.sum() > 0]
 
     # Verificação se os dados do sensor são constantes por, pelo menos, 4 amostras consecutivas
-    same_value_for_a_time = irradiance.rolling(window=4).apply(
+    same_value_for_a_time = irradiance_limited.rolling(window=4).apply(
         lambda x: x.nunique() == 1
     )
     irradiance = irradiance.loc[:, ~same_value_for_a_time.any()]
@@ -145,23 +147,22 @@ def remove_sensors_without_data_and_variance(
 def remove_sensors_different_from_the_reference(
     irradiance: pd.DataFrame,
 ) -> pd.DataFrame:
-    reference = irradiance.median(axis=1)
+    reference = irradiance.mean(axis=1)
 
     max_distance = (
-        8e3  # Valor de referência para a distância máxima (ajuste se necessário)
+        5e3  # Valor de referência para a distância máxima (ajuste se necessário)
     )
 
     for sensor in irradiance.columns:
         irradiance_sensor = irradiance[[sensor]]
-        distance = np.abs(irradiance_sensor.values - reference.values)
 
-        if distance.max() > max_distance:
+        sum_irradiance = irradiance_sensor.sum()
+        sum_reference = reference.sum()
+
+        distance = sum_irradiance - sum_reference
+
+        if distance.min() < -max_distance:
             irradiance = irradiance.drop(columns=[sensor])
-
-            diff = abs(irradiance - reference).sum()
-
-            if diff > max_distance:
-                irradiance = irradiance.drop(columns=[sensor])
 
     return irradiance
 
@@ -236,6 +237,8 @@ def classify_period_with_irradiance(
         else:
             classification[sensor] = "Stow"
 
+    return classification
+
 
 def get_classification(
     solar_plant: str, park: str, begin: pd.Timestamp, end: pd.Timestamp
@@ -243,9 +246,7 @@ def get_classification(
     gti = get_data(solar_plant, park, "gti", begin, end)
     ghi = get_data(solar_plant, park, "ghi", begin, end)
 
-    classification = pd.DataFrame(
-        columns=(gti.columns.to_list() + ghi.columns.to_list())
-    )
+    classification = pd.DataFrame()
 
     for date in pd.date_range(begin, end, freq="D"):
         gti_day = gti.loc[gti.index.date == date.date()]
@@ -259,20 +260,25 @@ def get_classification(
             gti_filtered = filter_data(gti_day, ghi_limits, period)
             ghi_filtered = filter_data(ghi_day, ghi_limits, period)
 
-            idx = period[0]
-
             if ghi_filtered.empty:
                 period_classification = classify_period_without_irradiance(gti_filtered)
 
-                classification.loc[idx, ghi.columns] = "Indisponível"
+                period_classification[ghi.columns] = "Indisponível"
             else:
                 period_classification = classify_period_with_irradiance(
                     gti_filtered, ghi_filtered
                 )
 
-                classification.loc[idx, ghi.columns] = "Disponível"
+                period_classification[ghi.columns] = "Disponível"
 
-            classification = pd.concat([classification, period_classification])
+            if classification.empty:
+                classification = period_classification
+            else:
+                classification = pd.concat([classification, period_classification])
+
+    classification = pd.DataFrame(
+        classification, columns=(gti.columns.to_list() + ghi.columns.to_list())
+    )
 
     classification = classification.fillna("Indisponível")
 
@@ -280,11 +286,11 @@ def get_classification(
 
 
 if __name__ == "__main__":
-    begin = pd.Timestamp("2021-01-01")
-    end = pd.Timestamp("2021-01-01 23:59:59")
+    begin = pd.Timestamp("2021-03-21")
+    end = pd.Timestamp("2021-03-21")
 
     for plant in PLANTS_PARAM:
         for park in PLANTS_PARAM[plant]["parks"]:
-            get_classification(plant, park, begin, end)
+            print(get_classification(plant, park, begin, end))
             break
         break
