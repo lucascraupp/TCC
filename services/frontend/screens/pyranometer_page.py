@@ -10,6 +10,7 @@ from db.src.classification_pyranometer import get_classification, get_clear_sky
 from plotly.subplots import make_subplots
 
 PLANTS_PARAM = json.load(open("services/resources/solar_plants.json"))
+COLORS = {"Stow": "#fcb774", "Indisponível": "#FF6961", "Disponível": "#009de9"}
 
 
 def read_data(type_data: str) -> pd.DataFrame:
@@ -19,29 +20,34 @@ def read_data(type_data: str) -> pd.DataFrame:
     data = data.filter(like=st.session_state.park)
 
     data = data.apply(pd.to_numeric, errors="coerce")
+
+    window = 11
+    data = data.rolling(window=window).mean()
+    data = data.shift(-((window - 1) // 2))
+
     data = data.fillna(0)
 
     return data
 
 
 def update_data() -> None:
-    if st.session_state.date_range is None:
-        date_range = (st.session_state.start_week, st.session_state.end_calendar)
-    else:
-        date_range = st.session_state.date_range
+    date_range = st.session_state.date_range
 
     st.session_state.classification = get_classification(
         st.session_state.solar_plant,
         st.session_state.park,
-        date_range[0],
-        date_range[1],
+        pd.Timestamp(date_range[0]),
+        pd.Timestamp(date_range[1]),
     )
 
     clearsky = pd.DataFrame()
-    for date in date_range:
-        clearsky = pd.concat(
-            [clearsky, get_clear_sky(st.session_state.solar_plant, date)]
-        )
+    for date in pd.date_range(date_range[0], date_range[1]):
+        clearsky_date = get_clear_sky(st.session_state.solar_plant, date)
+
+        if clearsky.empty:
+            clearsky = clearsky_date
+        else:
+            clearsky = pd.concat([clearsky, clearsky_date])
 
     st.session_state.clearsky = clearsky
 
@@ -66,11 +72,9 @@ def generate_dates() -> None:
 
     start_week = end_date - pd.DateOffset(weeks=1)
 
-    st.session_state.begin_calendar = start_date
-    st.session_state.end_calendar = end_date
-    st.session_state.start_week = start_week
-
-    update_data()
+    st.session_state.begin_calendar = pd.Timestamp(start_date)
+    st.session_state.end_calendar = pd.Timestamp(end_date)
+    st.session_state.start_week = pd.Timestamp(start_week)
 
 
 def generate_header_params() -> None:
@@ -135,11 +139,12 @@ def header() -> None:
             min_value=begin_calendar,
             max_value=end_calendar,
             key="date_range",
-            on_change=update_data,
         )
 
         if len(st.session_state.date_range) < 2:
             st.stop()
+        else:
+            update_data()
 
 
 def generate_temporal_series(data: pd.DataFrame, fig: go.Figure) -> go.Figure:
@@ -173,17 +178,77 @@ def generate_temporal_series(data: pd.DataFrame, fig: go.Figure) -> go.Figure:
 
     return fig
 
-    # # fig.update_yaxes(title_text="Irradiância (W/m²)", row=1, col=1)
-    # fig.update_layout(
-    #     title="Série temporal dos piranômetros",
-    #     xaxis_title="Timestamp",
-    #     yaxis_title="Irradiância (W/m²)",
-    # )
-    # st.plotly_chart(fig, use_container_width=True)
-
 
 def generate_gantt_chart(fig: go.Figure) -> go.Figure:
-    return
+    classification = st.session_state.classification
+    begin, end = st.session_state.date_range
+
+    gantt_list = []
+    for date in pd.date_range(begin, end):
+        day_class = classification.loc[classification.index.date == date.date()].copy()
+
+        day_class["start"] = [
+            date,
+            day_class.index[1],
+        ]
+        day_class["end"] = [
+            day_class.index[1] - pd.Timedelta(seconds=1),
+            date + pd.Timedelta(hours=23, minutes=59, seconds=59),
+        ]
+
+        sensors_list = []
+        for sensor in day_class.iloc[:, :-2]:
+            df = pd.DataFrame()
+
+            df["sensor"] = [sensor] * len(day_class)
+            df["status"] = day_class[sensor].values
+            df["start"] = day_class["start"].values
+            df["end"] = day_class["end"].values
+            df.index = [date] * len(day_class)
+
+            sensors_list.append(df)
+
+        gantt_list.append(pd.concat(sensors_list))
+
+    gantt_chart = pd.concat(gantt_list)
+
+    gantt_chart["description"] = gantt_chart.apply(
+        lambda row: f"{row['sensor']} <br>{row['start']} - {row['end']} <br>{row['status']}",
+        axis=1,
+    )
+
+    timeline = go.Figure()
+
+    for _, row in gantt_chart.iterrows():
+        timeline.add_trace(
+            go.Scatter(
+                x=[row["start"], row["end"]],
+                y=[row["sensor"]] * 5,
+                mode="lines",
+                line=dict(
+                    color=COLORS[row["status"]], width=25
+                ),  # Customize line appearance (increased width)
+                text=row["description"],
+                hoverinfo="text",
+                name=row["sensor"],  # Specify the name for the legend group
+                legendgroup=row["sensor"],  # Set the legend group identifier
+            )
+        )
+
+    # Cria um dicionário de mapeamento da ordem dos sensores no gantt_chart
+    sensor_order = {
+        sensor: i for i, sensor in enumerate(gantt_chart["sensor"].unique())
+    }
+
+    # Ordena timeline.data com base na ordem dos sensores no gantt_chart
+    timeline.data = sorted(
+        timeline.data, key=lambda trace: sensor_order[trace.name], reverse=True
+    )
+
+    for trace in timeline.data:
+        fig.add_trace(trace, row=2, col=1)
+
+    return fig
 
 
 def plot_graphs() -> None:
@@ -197,14 +262,24 @@ def plot_graphs() -> None:
             "Disponibilidade dos sensores",
         ),
     )
-    st.write(type(fig))
 
     data = st.session_state.sensor_data
     date_range = st.session_state.date_range
 
-    data = data.loc[date_range[0] : date_range[1]]
+    data = data.loc[date_range[0] : pd.Timestamp(f"{date_range[1]} 23:59:59")]
 
-    # fig = generate_temporal_series(fig)
+    fig = generate_temporal_series(data, fig)
+    fig = generate_gantt_chart(fig)
+
+    fig.update_xaxes(title_text="Timestamp", row=2, col=1)
+
+    fig.update_yaxes(title_text="Irradiância (W/m²)", row=1, col=1)
+    fig.update_yaxes(title_text="Sensores", row=2, col=1)
+
+    fig.update_traces(showlegend=False, row=2, col=1)
+
+    fig.update_layout(height=800)
+    st.plotly_chart(fig, use_container_width=True)
 
 
 def pyranometer_page() -> None:
