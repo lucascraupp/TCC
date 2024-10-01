@@ -15,32 +15,6 @@ CREATE SCHEMA IF NOT EXISTS `tcc_db` ;
 USE `tcc_db` ;
 
 -- -----------------------------------------------------
--- Table `tcc_db`.`datetime`
--- -----------------------------------------------------
-CREATE TABLE IF NOT EXISTS `tcc_db`.`datetime` (
-  `id_datetime` INT NOT NULL AUTO_INCREMENT,
-  `timestamp` TIMESTAMP NOT NULL,
-  PRIMARY KEY (`id_datetime`),
-  UNIQUE INDEX `timestamp_UNIQUE` (`timestamp` ASC) VISIBLE)
-ENGINE = InnoDB
-DEFAULT CHARACTER SET = utf8mb4
-COLLATE = utf8mb4_0900_ai_ci;
-
-
--- -----------------------------------------------------
--- Table `tcc_db`.`status`
--- -----------------------------------------------------
-CREATE TABLE IF NOT EXISTS `tcc_db`.`status` (
-  `id_status` INT NOT NULL AUTO_INCREMENT,
-  `status` VARCHAR(11) NOT NULL,
-  PRIMARY KEY (`id_status`),
-  UNIQUE INDEX `status_UNIQUE` (`status` ASC) VISIBLE)
-ENGINE = InnoDB
-DEFAULT CHARACTER SET = utf8mb4
-COLLATE = utf8mb4_0900_ai_ci;
-
-
--- -----------------------------------------------------
 -- Table `tcc_db`.`sensor`
 -- -----------------------------------------------------
 CREATE TABLE IF NOT EXISTS `tcc_db`.`sensor` (
@@ -59,10 +33,8 @@ COLLATE = utf8mb4_0900_ai_ci;
 CREATE TABLE IF NOT EXISTS `tcc_db`.`solar_plant` (
   `id_solar_plant` INT NOT NULL AUTO_INCREMENT,
   `name` VARCHAR(45) NOT NULL,
-  `nickname` VARCHAR(45) NOT NULL,
   PRIMARY KEY (`id_solar_plant`),
-  UNIQUE INDEX `name_UNIQUE` (`name` ASC) VISIBLE,
-  UNIQUE INDEX `nickname_UNIQUE` (`nickname` ASC) VISIBLE)
+  UNIQUE INDEX `name_UNIQUE` (`name` ASC) VISIBLE)
 ENGINE = InnoDB
 AUTO_INCREMENT = 8
 DEFAULT CHARACTER SET = utf8mb4
@@ -70,72 +42,35 @@ COLLATE = utf8mb4_0900_ai_ci;
 
 
 -- -----------------------------------------------------
--- Table `tcc_db`.`park`
+-- Table `tcc_db`.`status`
 -- -----------------------------------------------------
-CREATE TABLE IF NOT EXISTS `tcc_db`.`park` (
-  `id_park` INT NOT NULL AUTO_INCREMENT,
+CREATE TABLE IF NOT EXISTS `tcc_db`.`status` (
+  `id_status` INT NOT NULL AUTO_INCREMENT,
+  `status` VARCHAR(11) NOT NULL,
+  PRIMARY KEY (`id_status`),
+  UNIQUE INDEX `status_UNIQUE` (`status` ASC) VISIBLE)
+ENGINE = InnoDB
+DEFAULT CHARACTER SET = utf8mb4
+COLLATE = utf8mb4_0900_ai_ci;
+
+
+-- -----------------------------------------------------
+-- Table `tcc_db`.`solar_plant_has_sensor`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `tcc_db`.`solar_plant_has_sensor` (
   `id_solar_plant` INT NOT NULL,
-  `name` VARCHAR(45) NOT NULL,
-  `nickname` VARCHAR(45) NOT NULL,
-  PRIMARY KEY (`id_park`),
-  INDEX `fk_park_solar_plant1_idx` (`id_solar_plant` ASC) VISIBLE,
-  CONSTRAINT `fk_park_solar_plant1`
+  `id_sensor` INT NOT NULL,
+  PRIMARY KEY (`id_solar_plant`, `id_sensor`),
+  INDEX `fk_solar_plant_has_sensor_sensor1_idx` (`id_sensor` ASC) VISIBLE,
+  INDEX `fk_solar_plant_has_sensor_solar_plant1_idx` (`id_solar_plant` ASC) VISIBLE,
+  CONSTRAINT `fk_solar_plant_has_sensor_solar_plant1`
     FOREIGN KEY (`id_solar_plant`)
     REFERENCES `tcc_db`.`solar_plant` (`id_solar_plant`)
     ON DELETE NO ACTION
-    ON UPDATE NO ACTION)
-ENGINE = InnoDB
-AUTO_INCREMENT = 73
-DEFAULT CHARACTER SET = utf8mb4
-COLLATE = utf8mb4_0900_ai_ci;
-
-
--- -----------------------------------------------------
--- Table `tcc_db`.`sensor_per_park`
--- -----------------------------------------------------
-CREATE TABLE IF NOT EXISTS `tcc_db`.`sensor_per_park` (
-  `id_sensor` INT NOT NULL,
-  `id_park` INT NOT NULL,
-  PRIMARY KEY (`id_sensor`, `id_park`),
-  INDEX `fk_sensor_has_park_park1_idx` (`id_park` ASC) VISIBLE,
-  INDEX `fk_sensor_has_park_sensor1_idx` (`id_sensor` ASC) VISIBLE,
-  CONSTRAINT `fk_sensor_has_park_sensor1`
+    ON UPDATE NO ACTION,
+  CONSTRAINT `fk_solar_plant_has_sensor_sensor1`
     FOREIGN KEY (`id_sensor`)
     REFERENCES `tcc_db`.`sensor` (`id_sensor`)
-    ON DELETE NO ACTION
-    ON UPDATE NO ACTION,
-  CONSTRAINT `fk_sensor_has_park_park1`
-    FOREIGN KEY (`id_park`)
-    REFERENCES `tcc_db`.`park` (`id_park`)
-    ON DELETE NO ACTION
-    ON UPDATE NO ACTION)
-ENGINE = InnoDB
-DEFAULT CHARACTER SET = utf8mb4
-COLLATE = utf8mb4_0900_ai_ci;
-
-
--- -----------------------------------------------------
--- Table `tcc_db`.`data`
--- -----------------------------------------------------
-CREATE TABLE IF NOT EXISTS `tcc_db`.`data` (
-  `id_datetime` INT NOT NULL,
-  `id_park` INT NOT NULL,
-  `id_sensor` INT NOT NULL,
-  `id_status` INT NOT NULL,
-  `value` DECIMAL(11,2) NOT NULL,
-  PRIMARY KEY (`id_datetime`, `id_park`, `id_sensor`, `id_status`),
-  INDEX `fk_data_date1_idx` (`id_datetime` ASC) VISIBLE,
-  INDEX `fk_data_status1_idx` (`id_status` ASC) VISIBLE,
-  INDEX `fk_data_sensor_per_park1_idx` (`id_sensor` ASC, `id_park` ASC) VISIBLE,
-  CONSTRAINT `fk_data_date1`
-    FOREIGN KEY (`id_datetime`)
-    REFERENCES `tcc_db`.`datetime` (`id_datetime`),
-  CONSTRAINT `fk_data_status1`
-    FOREIGN KEY (`id_status`)
-    REFERENCES `tcc_db`.`status` (`id_status`),
-  CONSTRAINT `fk_data_sensor_per_park1`
-    FOREIGN KEY (`id_sensor` , `id_park`)
-    REFERENCES `tcc_db`.`sensor_per_park` (`id_sensor` , `id_park`)
     ON DELETE NO ACTION
     ON UPDATE NO ACTION)
 ENGINE = InnoDB
@@ -147,26 +82,60 @@ COLLATE = utf8mb4_0900_ai_ci;
 -- Table `tcc_db`.`classification`
 -- -----------------------------------------------------
 CREATE TABLE IF NOT EXISTS `tcc_db`.`classification` (
-  `id_park` INT NOT NULL,
+  `id_solar_plant` INT NOT NULL,
   `id_sensor` INT NOT NULL,
-  `id_datetime` INT NOT NULL,
+  `timestamp` TIMESTAMP NOT NULL,
   `status` VARCHAR(45) NOT NULL,
-  PRIMARY KEY (`id_park`, `id_sensor`, `id_datetime`),
-  INDEX `fk_sensor_per_park_has_datetime_datetime1_idx` (`id_datetime` ASC) VISIBLE,
-  INDEX `fk_sensor_per_park_has_datetime_sensor_per_park1_idx` (`id_sensor` ASC, `id_park` ASC) VISIBLE,
-  CONSTRAINT `fk_sensor_per_park_has_datetime_sensor_per_park1`
-    FOREIGN KEY (`id_sensor` , `id_park`)
-    REFERENCES `tcc_db`.`sensor_per_park` (`id_sensor` , `id_park`)
-    ON DELETE NO ACTION
-    ON UPDATE NO ACTION,
-  CONSTRAINT `fk_sensor_per_park_has_datetime_datetime1`
-    FOREIGN KEY (`id_datetime`)
-    REFERENCES `tcc_db`.`datetime` (`id_datetime`)
+  PRIMARY KEY (`id_solar_plant`, `id_sensor`, `timestamp`),
+  CONSTRAINT `fk_classification_solar_plant_has_sensor1`
+    FOREIGN KEY (`id_solar_plant` , `id_sensor`)
+    REFERENCES `tcc_db`.`solar_plant_has_sensor` (`id_solar_plant` , `id_sensor`)
     ON DELETE NO ACTION
     ON UPDATE NO ACTION)
 ENGINE = InnoDB
 DEFAULT CHARACTER SET = utf8mb4
 COLLATE = utf8mb4_0900_ai_ci;
+
+
+-- -----------------------------------------------------
+-- Table `tcc_db`.`solar_plant_data`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `tcc_db`.`solar_plant_data` (
+  `id_solar_plant` INT NOT NULL,
+  `id_sensor` INT NOT NULL,
+  `id_status` INT NOT NULL,
+  `timestamp` TIMESTAMP NOT NULL,
+  `value` FLOAT NOT NULL,
+  PRIMARY KEY (`id_solar_plant`, `id_sensor`, `id_status`, `timestamp`),
+  INDEX `fk_gti_ghi_power_status1_idx` (`id_status` ASC) VISIBLE,
+  CONSTRAINT `fk_gti_ghi_power_solar_plant_has_sensor1`
+    FOREIGN KEY (`id_solar_plant` , `id_sensor`)
+    REFERENCES `tcc_db`.`solar_plant_has_sensor` (`id_solar_plant` , `id_sensor`)
+    ON DELETE NO ACTION
+    ON UPDATE NO ACTION,
+  CONSTRAINT `fk_gti_ghi_power_status1`
+    FOREIGN KEY (`id_status`)
+    REFERENCES `tcc_db`.`status` (`id_status`)
+    ON DELETE NO ACTION
+    ON UPDATE NO ACTION)
+ENGINE = InnoDB;
+
+
+-- -----------------------------------------------------
+-- Table `tcc_db`.`external_data`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `tcc_db`.`external_data` (
+  `id_solar_plant` INT NOT NULL,
+  `id_sensor` INT NOT NULL,
+  `timestamp` TIMESTAMP NOT NULL,
+  `value` FLOAT NOT NULL,
+  PRIMARY KEY (`id_solar_plant`, `id_sensor`, `timestamp`),
+  CONSTRAINT `fk_external_data_solar_plant_has_sensor1`
+    FOREIGN KEY (`id_solar_plant` , `id_sensor`)
+    REFERENCES `tcc_db`.`solar_plant_has_sensor` (`id_solar_plant` , `id_sensor`)
+    ON DELETE NO ACTION
+    ON UPDATE NO ACTION)
+ENGINE = InnoDB;
 
 
 SET SQL_MODE=@OLD_SQL_MODE;
