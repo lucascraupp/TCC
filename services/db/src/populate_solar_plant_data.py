@@ -1,208 +1,17 @@
 import json
 import math
 import os
+import sys
+
+sys.path.append("services/")
 
 import pandas as pd
-import pymysql
-import pymysql.cursors
 from joblib import Parallel, delayed
 from pvlib.location import Location
 
-HOST = os.environ["DB_HOST"]
-USER = os.environ["DB_USER"]
-PASSWORD = os.environ["DB_PASSWORD"]
-DATABASE = os.environ["DB_DATABASE"]
+from services.db.src.insert_db import insert_solar_plant_data
+
 PLANTS_PARAM = json.load(open("services/resources/solar_plants.json"))
-
-
-def get_cached_id(cache, key, query, cursor, params) -> int | None:
-    if key not in cache:
-        cursor.execute(query, params)
-        result = cursor.fetchone()
-        cache[key] = result[0] if result else None
-    return cache[key]
-
-
-def insert_solar_plant(
-    solar_plant: str, cursor: pymysql.cursors.Cursor, cache: dict
-) -> None:
-    key = f"solar_plant_{solar_plant}"
-
-    if (
-        get_cached_id(
-            cache,
-            key,
-            "SELECT id_solar_plant FROM solar_plant WHERE name = %s",
-            cursor,
-            (solar_plant,),
-        )
-        is None
-    ):
-        cursor.execute(
-            "INSERT INTO solar_plant (name) VALUES (%s)",
-            (solar_plant),
-        )
-        cursor.execute("SELECT LAST_INSERT_ID()")
-        cache[key] = cursor.fetchone()[0]
-
-
-def insert_sensor(
-    name: str, type_sensor: str, cursor: pymysql.cursors.Cursor, cache: dict
-) -> None:
-    key = f"sensor_{name}_{type_sensor}"
-
-    if (
-        get_cached_id(
-            cache,
-            key,
-            "SELECT id_sensor FROM sensor WHERE name = %s AND type = %s",
-            cursor,
-            (name, type_sensor),
-        )
-        is None
-    ):
-        cursor.execute(
-            "INSERT INTO sensor (name, type) VALUES (%s, %s)",
-            (name, type_sensor),
-        )
-        cursor.execute("SELECT LAST_INSERT_ID()")
-        cache[key] = cursor.fetchone()[0]
-
-
-def insert_solar_plant_has_sensor(
-    solar_plant: str,
-    sensor: str,
-    cursor: pymysql.cursors.Cursor,
-    cache: dict,
-) -> None:
-    id_solar_plant = get_cached_id(
-        cache,
-        f"solar_plant_{solar_plant}",
-        "SELECT id_solar_plant FROM solar_plant WHERE nickname = %s",
-        cursor,
-        (solar_plant),
-    )
-    id_sensor = get_cached_id(
-        cache,
-        f"sensor_{sensor}_sensor",
-        "SELECT id_sensor FROM sensor WHERE name = %s",
-        cursor,
-        (sensor),
-    )
-
-    key = f"solar_plant_has_sensor_{solar_plant}_{id_sensor}"
-    if key not in cache:
-        try:
-            cursor.execute(
-                "INSERT INTO solar_plant_has_sensor (id_solar_plant, id_sensor) VALUES (%s, %s)",
-                (id_solar_plant, id_sensor),
-            )
-            cache[key] = True
-        except:
-            pass
-
-
-def insert_status(status: str, cursor: pymysql.cursors.Cursor, cache: dict) -> None:
-    key = f"status_{status}"
-
-    if (
-        get_cached_id(
-            cache,
-            key,
-            "SELECT id_status FROM status WHERE status = %s",
-            cursor,
-            (status,),
-        )
-        is None
-    ):
-        cursor.execute("INSERT INTO status (status) VALUES (%s)", (status,))
-        cursor.execute("SELECT LAST_INSERT_ID()")
-        cache[key] = cursor.fetchone()[0]
-
-
-def insert_solar_plant_data(
-    solar_plant: str,
-    sensor: str,
-    status: str,
-    data_sensor: pd.Series,
-    cursor: pymysql.cursors.Cursor,
-    cache: dict,
-) -> None:
-    id_solar_plant = get_cached_id(
-        cache,
-        f"solar_plant_{solar_plant}",
-        "SELECT id_solar_plant FROM solar_plant WHERE nickname = %s",
-        cursor,
-        (solar_plant,),
-    )
-    id_sensor = get_cached_id(
-        cache,
-        f"sensor_{sensor}",
-        "SELECT id_sensor FROM sensor WHERE name = %s",
-        cursor,
-        (sensor,),
-    )
-    id_status = get_cached_id(
-        cache,
-        f"status_{status}",
-        "SELECT id_status FROM status WHERE status = %s",
-        cursor,
-        (status,),
-    )
-
-    values = [
-        (id_solar_plant, id_sensor, id_status, timestamp, value)
-        for timestamp, value in zip(data_sensor.index, data_sensor.values)
-    ]
-    cursor.executemany(
-        "INSERT IGNORE INTO solar_plant_data (id_solar_plant, id_sensor, id_status, timestamp, value) VALUES (%s, %s, %s, %s, %s)",
-        values,
-    )
-
-
-def populate_db(
-    data: pd.DataFrame, status: str, cursor: pymysql.cursors.Cursor
-) -> None:
-    cache = {}
-
-    for sensor in data.columns:
-        data_sensor = data[sensor]
-
-        # Divisão do sensor
-        split_sensor = sensor.split("\\")
-        solar_plant = split_sensor[0]
-        type_sensor = split_sensor[1]
-        name = "\\".join(split_sensor[2:])
-
-        print(f"Populando o sensor {name} com tipo {type_sensor}...")
-
-        # Popula as outras tabelas
-        insert_solar_plant(solar_plant, cursor, cache)
-        insert_sensor(name, type_sensor, cursor, cache)
-        insert_solar_plant_has_sensor(solar_plant, name, cursor, cache)
-        insert_status(status, cursor, cache)
-
-        # Popula a tabela data
-        insert_solar_plant_data(solar_plant, name, status, data_sensor, cursor, cache)
-
-
-def populate(data: pd.DataFrame, status: str) -> None:
-    connection = pymysql.connect(
-        host=HOST,
-        user=USER,
-        password=PASSWORD,
-        database=DATABASE,
-    )
-
-    try:
-        with connection.cursor() as cursor:
-            populate_db(data, status, cursor)
-            connection.commit()
-    finally:
-        connection.close()
-
-
-# ------------------------------------------------------------------------------------
 
 
 def read_data(solar_plant: str) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
@@ -358,13 +167,13 @@ def populate_solar_plant_data(solar_plant: str, moving_averange: bool) -> None:
     ghi = apply_filters(solar_plant, ghi, moving_averange)
 
     print("Iniciando a população do GTI...")
-    populate(gti, status)
+    insert_solar_plant_data(gti, status)
 
     print("Iniciando a população do GHI...")
-    populate(ghi, status)
+    insert_solar_plant_data(ghi, status)
 
     if not ca_power.empty:
         ca_power = apply_filters(solar_plant, ca_power, moving_averange)
 
         print("Iniciando a população da Potência CA...")
-        populate(ca_power, status)
+        insert_solar_plant_data(ca_power, status)

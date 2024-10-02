@@ -1,6 +1,6 @@
 import os
 
-from src.irradiance_data import populate_solar_plant_data
+from src.populate_solar_plant_data import populate_solar_plant_data
 
 USINE_LIST = [
     f
@@ -10,5 +10,10 @@ USINE_LIST = [
 
 if __name__ == "__main__":
     for usine in USINE_LIST:
+        print(f"\nPopulando os dados da usina {usine}...\n")
+
+        print("\nPopulando os dados com média móvel...\n")
         populate_solar_plant_data(usine, True)
+
+        print("\nPopulando os dados sem média móvel...\n")
         populate_solar_plant_data(usine, False)
