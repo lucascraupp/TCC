@@ -46,9 +46,9 @@ COLLATE = utf8mb4_0900_ai_ci;
 -- -----------------------------------------------------
 CREATE TABLE IF NOT EXISTS `tcc_db`.`status` (
   `id_status` INT NOT NULL AUTO_INCREMENT,
-  `status` VARCHAR(11) NOT NULL,
+  `name` VARCHAR(11) NOT NULL,
   PRIMARY KEY (`id_status`),
-  UNIQUE INDEX `status_UNIQUE` (`status` ASC) VISIBLE)
+  UNIQUE INDEX `status_UNIQUE` (`name` ASC) VISIBLE)
 ENGINE = InnoDB
 DEFAULT CHARACTER SET = utf8mb4
 COLLATE = utf8mb4_0900_ai_ci;
