@@ -1,9 +1,6 @@
 import json
 import math
 import os
-import sys
-
-sys.path.append("services/")
 
 import pandas as pd
 from joblib import Parallel, delayed
