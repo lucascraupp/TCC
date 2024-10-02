@@ -6,8 +6,12 @@ sys.path.append("services/")
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
-from db.src.classification_pyranometer import get_classification, get_clear_sky
 from plotly.subplots import make_subplots
+
+from services.db.src.generate_classification import (
+    generate_classification,
+    get_clear_sky,
+)
 
 PLANTS_PARAM = json.load(open("services/resources/solar_plants.json"))
 COLORS = {"Stow": "#fcb774", "Indisponível": "#FF6961", "Disponível": "#009de9"}
@@ -33,7 +37,7 @@ def read_data(type_data: str) -> pd.DataFrame:
 def update_data() -> None:
     date_range = st.session_state.date_range
 
-    st.session_state.classification = get_classification(
+    st.session_state.classification = generate_classification(
         st.session_state.solar_plant,
         st.session_state.park,
         pd.Timestamp(date_range[0]),

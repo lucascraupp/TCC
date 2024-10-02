@@ -9,27 +9,6 @@ from pvlib.location import Location
 PLANTS_PARAM = json.load(open("services/resources/solar_plants.json"))
 
 
-def get_data(
-    solar_plant: str, park: str, type_data: str, begin: pd.Timestamp, end: pd.Timestamp
-) -> pd.DataFrame:
-    data = pd.read_parquet(PLANTS_PARAM[solar_plant][type_data])
-    data = data.set_index("Timestamp")
-    data.index = pd.to_datetime(data.index)
-
-    data = data.loc[(begin.date() <= data.index.date) & (data.index.date <= end.date())]
-
-    data = data.filter(like=park, axis=1)
-    data = data.apply(pd.to_numeric, errors="coerce")
-
-    window = 11
-    data = data.rolling(window=window).mean()
-    data = data.shift(-((window - 1) // 2))
-
-    data = data.fillna(0)
-
-    return data
-
-
 def get_clear_sky(solar_plant: str, date: pd.Timestamp) -> pd.Series:
     loc = PLANTS_PARAM[solar_plant]["location"]
 
@@ -240,57 +219,62 @@ def classify_period_with_irradiance(
     return classification
 
 
-def get_classification(
-    solar_plant: str, park: str, begin: pd.Timestamp, end: pd.Timestamp
+def process_day(
+    solar_plant: str, gti: pd.DataFrame, ghi: pd.DataFrame, date: pd.Timestamp
 ) -> pd.DataFrame:
-    gti = get_data(solar_plant, park, "gti", begin, end)
-    ghi = get_data(solar_plant, park, "ghi", begin, end)
+    gti_day = gti.loc[gti.index.date == date.date()]
+    ghi_day = ghi.loc[ghi.index.date == date.date()]
 
-    classification = pd.DataFrame()
+    gti_day = sun_filter(solar_plant, gti_day, date)
+    ghi_day = sun_filter(solar_plant, ghi_day, date)
 
-    for date in pd.date_range(begin, end, freq="D"):
-        gti_day = gti.loc[gti.index.date == date.date()]
-        ghi_day = ghi.loc[ghi.index.date == date.date()]
-        gti_day = sun_filter(solar_plant, gti_day, date)
-        ghi_day = sun_filter(solar_plant, ghi_day, date)
-
-        irradiance_limits, ghi_limits = calculate_period_limits(solar_plant, date)
-
-        for period in irradiance_limits.values():
-            gti_filtered = filter_data(gti_day, ghi_limits, period)
-            ghi_filtered = filter_data(ghi_day, ghi_limits, period)
-
-            if ghi_filtered.empty:
-                period_classification = classify_period_without_irradiance(gti_filtered)
-
-                period_classification[ghi.columns] = "Indisponível"
-            else:
-                period_classification = classify_period_with_irradiance(
-                    gti_filtered, ghi_filtered
-                )
-
-                period_classification[ghi.columns] = "Disponível"
-
-            if classification.empty:
-                classification = period_classification
-            else:
-                classification = pd.concat([classification, period_classification])
+    irradiance_limits, ghi_limits = calculate_period_limits(solar_plant, date)
 
     classification = pd.DataFrame(
-        classification, columns=(gti.columns.to_list() + ghi.columns.to_list())
+        columns=(gti.columns.to_list() + ghi.columns.to_list())
     )
 
-    classification = classification.fillna("Indisponível")
+    for period in irradiance_limits.values():
+        gti_filtered = filter_data(gti_day, ghi_limits, period)
+        ghi_filtered = filter_data(ghi_day, ghi_limits, period)
+
+        if ghi_filtered.empty:
+            period_classification = classify_period_without_irradiance(gti_filtered)
+
+            period_classification[ghi.columns] = "Indisponível"
+        else:
+            period_classification = classify_period_with_irradiance(
+                gti_filtered, ghi_filtered
+            )
+
+            period_classification[ghi.columns] = "Disponível"
+
+        if classification.empty:
+            classification = period_classification
+        else:
+            classification = pd.concat([classification, period_classification])
 
     return classification
 
 
-if __name__ == "__main__":
-    begin = pd.Timestamp("2021-03-21")
-    end = pd.Timestamp("2021-03-21")
+def generate_classification(solar_plant: str) -> None:
+    gti = pd.read_parquet(PLANTS_PARAM[solar_plant]["gti_avg"])
+    ghi = pd.read_parquet(PLANTS_PARAM[solar_plant]["ghi_avg"])
 
-    for plant in PLANTS_PARAM:
-        for park in PLANTS_PARAM[plant]["parks"]:
-            print(get_classification(plant, park, begin, end))
-            break
-        break
+    gti = gti.fillna(0)
+    ghi = ghi.fillna(0)
+
+    begin = gti.index.min()
+    end = gti.index.max()
+
+    date_range = pd.date_range(begin, end, freq="D")
+
+    classification_list = Parallel(n_jobs=-1)(
+        delayed(process_day)(solar_plant, gti, ghi, date) for date in date_range
+    )
+
+    classification = pd.concat(classification_list)
+
+    classification = classification.fillna("Indisponível")
+
+    classification.to_parquet(PLANTS_PARAM[solar_plant]["classification"])

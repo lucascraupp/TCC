@@ -1,5 +1,6 @@
 import os
 
+from src.generate_classification import generate_classification
 from src.generate_clearsky import generate_clearsky
 from src.generate_gti_ghi_ca import generate_gti_ghi_ca
 
@@ -22,3 +23,6 @@ if __name__ == "__main__":
 
         print("\nPopulando os dados de céu limpo...\n")
         generate_clearsky(usine)
+
+        print("\nPopulando a classificação...\n")
+        generate_classification(usine)
