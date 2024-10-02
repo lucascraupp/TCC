@@ -259,9 +259,6 @@ def generate_classification(solar_plant: str) -> None:
     gti = pd.read_parquet(PLANTS_PARAM[solar_plant]["gti_avg"])
     ghi = pd.read_parquet(PLANTS_PARAM[solar_plant]["ghi_avg"])
 
-    gti = gti.fillna(0)
-    ghi = ghi.fillna(0)
-
     begin = gti.index.min()
     end = gti.index.max()
 
