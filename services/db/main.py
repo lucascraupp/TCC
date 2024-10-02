@@ -1,28 +1,27 @@
-import os
+import json
 
 from src.generate_classification import generate_classification
 from src.generate_clearsky import generate_clearsky
 from src.generate_gti_ghi_ca import generate_gti_ghi_ca
+from src.generate_teoric_irradiances import generate_teoric_irradiances
 
-USINE_LIST = [
-    f
-    for f in os.listdir("services/resources/datalake")
-    if os.path.isdir(os.path.join("services/resources/datalake", f))
-]
-
+PLANTS_PARAM = json.load(open("services/resources/solar_plants.json"))
 
 if __name__ == "__main__":
-    for usine in USINE_LIST:
-        print(f"\nPopulando os dados da usina {usine}...\n")
+    for solar_plant in PLANTS_PARAM.keys():
+        print(f"\nPopulando os dados da usina {solar_plant}...\n")
 
         print("\nPopulando os dados com média móvel...\n")
-        generate_gti_ghi_ca(usine, True)
+        generate_gti_ghi_ca(solar_plant, True)
 
         print("\nPopulando os dados sem média móvel...\n")
-        generate_gti_ghi_ca(usine, False)
+        generate_gti_ghi_ca(solar_plant, False)
 
         print("\nPopulando os dados de céu limpo...\n")
-        generate_clearsky(usine)
+        generate_clearsky(solar_plant)
 
         print("\nPopulando a classificação...\n")
-        generate_classification(usine)
+        generate_classification(solar_plant)
+
+        print("\nPopulando as irradâncias teóricas...\n")
+        generate_teoric_irradiances(solar_plant)
