@@ -61,7 +61,6 @@ def generate_clearsky(solar_plant: str) -> None:
     )
 
     clearsky = pd.concat(clearsky)
-    clearsky = clearsky.reset_index()
     clearsky = clearsky.rename(
         columns={"index": "timestamp", "ghi": "GHI teórico (clearsky)"}
     )
