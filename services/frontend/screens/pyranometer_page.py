@@ -1,89 +1,31 @@
 import json
-import sys
-
-sys.path.append("services/")
 
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 from plotly.subplots import make_subplots
 
-from services.db.src.generate_classification import (
-    generate_classification,
-    get_clear_sky,
-)
-
 PLANTS_PARAM = json.load(open("services/resources/solar_plants.json"))
 COLORS = {"Stow": "#fcb774", "Indisponível": "#FF6961", "Disponível": "#009de9"}
 
 
-def read_data(type_data: str) -> pd.DataFrame:
-    data = pd.read_parquet(PLANTS_PARAM[st.session_state.solar_plant][type_data])
-    data = data.set_index("Timestamp")
-
-    data = data.filter(like=st.session_state.park)
-
-    data = data.apply(pd.to_numeric, errors="coerce")
-
-    window = 11
-    data = data.rolling(window=window).mean()
-    data = data.shift(-((window - 1) // 2))
-
-    data = data.fillna(0)
-
-    return data
-
-
-def update_data() -> None:
-    date_range = st.session_state.date_range
-
-    st.session_state.classification = generate_classification(
-        st.session_state.solar_plant,
-        st.session_state.park,
-        pd.Timestamp(date_range[0]),
-        pd.Timestamp(date_range[1]),
+def get_data() -> None:
+    st.session_state.gti = pd.read_parquet(
+        PLANTS_PARAM[st.session_state.solar_plant]["gti_avg"]
+    )
+    st.session_state.ghi = pd.read_parquet(
+        PLANTS_PARAM[st.session_state.solar_plant]["ghi_avg"]
+    )
+    st.session_state.clearsky = pd.read_parquet(
+        PLANTS_PARAM[st.session_state.solar_plant]["clearsky"]
+    )
+    st.session_state.classification = pd.read_parquet(
+        PLANTS_PARAM[st.session_state.solar_plant]["classification"]
     )
 
-    clearsky = pd.DataFrame()
-    for date in pd.date_range(date_range[0], date_range[1]):
-        clearsky_date = get_clear_sky(st.session_state.solar_plant, date)
-
-        if clearsky.empty:
-            clearsky = clearsky_date
-        else:
-            clearsky = pd.concat([clearsky, clearsky_date])
-
-    st.session_state.clearsky = clearsky
-
-
-def generate_park_list() -> None:
-    park_list = list(PLANTS_PARAM[st.session_state.solar_plant]["parks"].keys())
-
-    st.session_state.park_list = park_list
-    st.session_state.park = park_list[0]
-
-    gti = read_data("gti")
-    ghi = read_data("ghi")
-
-    st.session_state.sensor_data = pd.concat([gti, ghi], axis=1)
-
-
-def generate_dates() -> None:
-    sensor_data = st.session_state.sensor_data
-
-    start_date = sensor_data.index.min().date()
-    end_date = sensor_data.index.max().date()
-
-    start_week = end_date - pd.DateOffset(weeks=1)
-
-    st.session_state.begin_calendar = pd.Timestamp(start_date)
-    st.session_state.end_calendar = pd.Timestamp(end_date)
-    st.session_state.start_week = pd.Timestamp(start_week)
-
-
-def generate_header_params() -> None:
-    generate_park_list()
-    generate_dates()
+    st.session_state.min = st.session_state.gti.index.min()
+    st.session_state.max = st.session_state.gti.index.max()
+    st.session_state.begin = st.session_state.max - pd.DateOffset(weeks=1)
 
 
 def start_page() -> None:
@@ -110,68 +52,74 @@ def start_page() -> None:
 
         st.session_state.first_start = False
 
-        generate_header_params()
+        get_data()
 
 
 def header() -> None:
-    begin_calendar = st.session_state.begin_calendar
-    end_calendar = st.session_state.end_calendar
-    start_week = st.session_state.start_week
-
-    cols = st.columns(3)
-
+    cols = st.columns(2)
     with cols[0]:
         st.selectbox(
             "Selecione a usina",
             st.session_state.plants_list,
             key="solar_plant",
-            on_change=generate_header_params,
+            on_change=get_data,
         )
-
     with cols[1]:
-        st.selectbox(
-            "Selecione o parque",
-            st.session_state.park_list,
-            key="park",
-            on_change=generate_dates,
-        )
+        min = st.session_state.min
+        max = st.session_state.max
+        begin = st.session_state.begin
 
-    with cols[2]:
         st.date_input(
             "Selecione um período",
-            value=(start_week, end_calendar),
-            min_value=begin_calendar,
-            max_value=end_calendar,
+            value=(begin, max),
+            min_value=min,
+            max_value=max,
             key="date_range",
         )
 
         if len(st.session_state.date_range) < 2:
             st.stop()
-        else:
-            update_data()
 
 
-def generate_temporal_series(data: pd.DataFrame, fig: go.Figure) -> go.Figure:
-    # Adiciona curvas de irradiância dos sensores
-    for sensor in data.columns:
+def generate_temporal_series(fig: go.Figure) -> None:
+    gti = st.session_state.gti
+    ghi = st.session_state.ghi
+    clearsky = st.session_state.clearsky
+
+    gti = gti.loc[st.session_state.date_range[0] : st.session_state.date_range[1]]
+    ghi = ghi.loc[st.session_state.date_range[0] : st.session_state.date_range[1]]
+    clearsky = clearsky.loc[
+        st.session_state.date_range[0] : st.session_state.date_range[1]
+    ]
+
+    for sensor in gti.columns:
         fig.add_trace(
             go.Scatter(
-                x=data.index,
-                y=data[sensor],
+                x=gti.index,
+                y=gti[sensor],
                 name=sensor,
-                legendgroup=sensor,  # Set the legend group identifier
+                legendgroup=sensor,
             ),
             row=1,
             col=1,
         )
 
-    clearsky = st.session_state.clearsky
+    fig.add_trace(
+        go.Scatter(
+            x=ghi.index,
+            y=ghi[ghi.columns[0]],
+            name=ghi.columns[0],
+            legendgroup=ghi.columns[0],
+        ),
+        row=1,
+        col=1,
+    )
 
     # Adiciona GHI (ClearSky)
     fig.add_trace(
         go.Scatter(
             x=clearsky.index,
-            y=clearsky,
+            y=clearsky[clearsky.columns[0]],
             name="GHI teórico (clearsky)",
             line=dict(color="gray", width=1.5, dash="dash"),
             legendgroup="GHI teórico",
@@ -180,10 +128,8 @@ def generate_temporal_series(data: pd.DataFrame, fig: go.Figure) -> go.Figure:
         col=1,
     )
 
-    return fig
 
-
-def generate_gantt_chart(fig: go.Figure) -> go.Figure:
+def generate_gantt_chart(fig: go.Figure) -> None:
     classification = st.session_state.classification
     begin, end = st.session_state.date_range
 
@@ -267,13 +213,8 @@ def plot_graphs() -> None:
         ),
     )
 
-    data = st.session_state.sensor_data
-    date_range = st.session_state.date_range
-
-    data = data.loc[date_range[0] : pd.Timestamp(f"{date_range[1]} 23:59:59")]
-
-    fig = generate_temporal_series(data, fig)
-    fig = generate_gantt_chart(fig)
+    generate_temporal_series(fig)
+    generate_gantt_chart(fig)
 
     fig.update_xaxes(title_text="Timestamp", row=2, col=1)
 
