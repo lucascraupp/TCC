@@ -162,10 +162,15 @@ def generate_gti_ghi_ca(solar_plant: str, moving_averange: bool) -> None:
     gti = apply_filters(solar_plant, gti, moving_averange)
     ghi = apply_filters(solar_plant, ghi, moving_averange)
 
+    gti.columns = [f"Piranômetro {chr(65 + i)}" for i in range(gti.shape[1])]
+    ghi.columns = ["GHI"]
+
     gti.to_parquet(PLANTS_PARAM[solar_plant][f"gti_{status}"])
     ghi.to_parquet(PLANTS_PARAM[solar_plant][f"ghi_{status}"])
 
     if not ca_power.empty:
         ca_power = apply_filters(solar_plant, ca_power, moving_averange)
+
+        ca_power.columns = ["Potência CA"]
 
         ca_power.to_parquet(PLANTS_PARAM[solar_plant][f"ca_power_{status}"])
