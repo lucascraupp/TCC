@@ -5,6 +5,7 @@
 */resources/mysql
 */resources/solar_plants.json
 *.bak
+*/db/datawarehouse/*
 
 ### JupyterNotebooks ###
 # gitignore template for Jupyter Notebooks

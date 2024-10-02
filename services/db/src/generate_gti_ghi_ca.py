@@ -9,8 +9,6 @@ import pandas as pd
 from joblib import Parallel, delayed
 from pvlib.location import Location
 
-from services.db.src.insert_db import insert_solar_plant_data
-
 PLANTS_PARAM = json.load(open("services/resources/solar_plants.json"))
 
 
@@ -156,24 +154,18 @@ def apply_filters(solar_plant: str, data: pd.DataFrame, avg: bool) -> pd.DataFra
     return data
 
 
-def populate_solar_plant_data(solar_plant: str, moving_averange: bool) -> None:
-    status = "AVG" if moving_averange else "Original"
-
-    print("Iniciando o tratamento dos dados...")
+def generate_gti_ghi_ca(solar_plant: str, moving_averange: bool) -> None:
+    status = "avg" if moving_averange else "original"
 
     gti, ghi, ca_power = read_data(solar_plant)
 
     gti = apply_filters(solar_plant, gti, moving_averange)
     ghi = apply_filters(solar_plant, ghi, moving_averange)
 
-    print("Iniciando a população do GTI...")
-    insert_solar_plant_data(gti, status)
-
-    print("Iniciando a população do GHI...")
-    insert_solar_plant_data(ghi, status)
+    gti.to_parquet(PLANTS_PARAM[solar_plant][f"gti_{status}"])
+    ghi.to_parquet(PLANTS_PARAM[solar_plant][f"ghi_{status}"])
 
     if not ca_power.empty:
         ca_power = apply_filters(solar_plant, ca_power, moving_averange)
 
-        print("Iniciando a população da Potência CA...")
-        insert_solar_plant_data(ca_power, status)
+        ca_power.to_parquet(PLANTS_PARAM[solar_plant][f"ca_power_{status}"])
