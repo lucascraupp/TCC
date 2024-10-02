@@ -230,9 +230,7 @@ def process_day(
 
     irradiance_limits, ghi_limits = calculate_period_limits(solar_plant, date)
 
-    classification = pd.DataFrame(
-        columns=(gti.columns.to_list() + ghi.columns.to_list())
-    )
+    classification = pd.DataFrame()
 
     for period in irradiance_limits.values():
         gti_filtered = filter_data(gti_day, ghi_limits, period)
@@ -274,6 +272,10 @@ def generate_classification(solar_plant: str) -> None:
     )
 
     classification = pd.concat(classification_list)
+
+    classification = pd.DataFrame(
+        classification, columns=(gti.columns.to_list() + ghi.columns.to_list())
+    )
 
     classification = classification.fillna("Indisponível")
 
