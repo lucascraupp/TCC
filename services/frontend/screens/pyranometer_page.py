@@ -13,6 +13,9 @@ def get_data() -> None:
     st.session_state.gti = pd.read_parquet(
         PLANTS_PARAM[st.session_state.solar_plant]["gti_avg"]
     )
+    st.session_state.teoric_irradiances = pd.read_parquet(
+        PLANTS_PARAM[st.session_state.solar_plant]["teoric_irradiances_avg"]
+    )
     st.session_state.ghi = pd.read_parquet(
         PLANTS_PARAM[st.session_state.solar_plant]["ghi_avg"]
     )
@@ -83,37 +86,30 @@ def header() -> None:
 
 def generate_temporal_series(fig: go.Figure) -> None:
     gti = st.session_state.gti
+    teoric_irradiances = st.session_state.teoric_irradiances
     ghi = st.session_state.ghi
     clearsky = st.session_state.clearsky
 
-    gti = gti.loc[st.session_state.date_range[0] : st.session_state.date_range[1]]
-    ghi = ghi.loc[st.session_state.date_range[0] : st.session_state.date_range[1]]
-    clearsky = clearsky.loc[
-        st.session_state.date_range[0] : st.session_state.date_range[1]
-    ]
+    begin, end = st.session_state.date_range
 
-    for sensor in gti.columns:
+    gti = gti.loc[begin:end]
+    teoric_irradiances = teoric_irradiances.loc[begin:end]
+    ghi = ghi.loc[begin:end]
+    clearsky = clearsky.loc[begin:end]
+
+    df = pd.concat([gti, teoric_irradiances, ghi], axis=1)
+
+    for sensor in df.columns:
         fig.add_trace(
             go.Scatter(
-                x=gti.index,
-                y=gti[sensor],
+                x=df.index,
+                y=df[sensor],
                 name=sensor,
                 legendgroup=sensor,
             ),
             row=1,
             col=1,
         )
-
-    fig.add_trace(
-        go.Scatter(
-            x=ghi.index,
-            y=ghi[ghi.columns[0]],
-            name=ghi.columns[0],
-            legendgroup=ghi.columns[0],
-        ),
-        row=1,
-        col=1,
-    )
 
     # Adiciona GHI (ClearSky)
     fig.add_trace(
