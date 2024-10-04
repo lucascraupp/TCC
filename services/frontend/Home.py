@@ -32,5 +32,7 @@ page = option_menu(
 # Renderiza a página selecionada
 if __name__ == "__main__":
     match page:
+        case "Página inicial":
+            st.session_state.clear()
         case "Piranômetros":
             pyranometer_page()
