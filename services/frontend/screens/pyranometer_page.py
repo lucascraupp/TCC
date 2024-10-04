@@ -91,6 +91,7 @@ def generate_temporal_series(fig: go.Figure) -> None:
     clearsky = st.session_state.clearsky
 
     begin, end = st.session_state.date_range
+    end = pd.Timestamp(f"{end} 23:59:59")
 
     gti = gti.loc[begin:end]
     teoric_irradiances = teoric_irradiances.loc[begin:end]
