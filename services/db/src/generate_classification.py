@@ -239,8 +239,8 @@ def process_day(
 
 
 def generate_classification(solar_plant: str) -> None:
-    gti = pd.read_parquet(PLANTS_PARAM[solar_plant]["gti_avg"])
-    ghi = pd.read_parquet(PLANTS_PARAM[solar_plant]["ghi_avg"])
+    gti = pd.read_parquet(PLANTS_PARAM[solar_plant]["datawarehouse"]["gti_avg"])
+    ghi = pd.read_parquet(PLANTS_PARAM[solar_plant]["datawarehouse"]["ghi_avg"])
 
     begin = gti.index.min()
     end = gti.index.max()
@@ -259,4 +259,6 @@ def generate_classification(solar_plant: str) -> None:
 
     classification = classification.fillna("Indisponível")
 
-    classification.to_parquet(PLANTS_PARAM[solar_plant]["classification"])
+    classification.to_parquet(
+        PLANTS_PARAM[solar_plant]["datawarehouse"]["classification"]
+    )

@@ -9,26 +9,20 @@ from pvlib.location import Location
 PLANTS_PARAM = json.load(open("services/resources/solar_plants.json"))
 
 
-def read_data(solar_plant: str) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
-    path = f"services/resources/datalake/{solar_plant}"
+def read_data(solar_plant: str, type_data: str) -> pd.DataFrame:
+    path = PLANTS_PARAM[solar_plant]["datalake"][type_data]
 
-    gti = pd.read_parquet(f"{path}/gti.parquet")
-    ghi = pd.read_parquet(f"{path}/ghi.parquet")
+    try:
+        data = pd.read_parquet(path)
 
-    if os.path.exists(f"{path}/ca_power.parquet"):
-        ca_power = pd.read_parquet(f"{path}/ca_power.parquet")
-        ca_power = ca_power.set_index("timestamp")
-        ca_power = ca_power.apply(pd.to_numeric, errors="coerce")
-    else:
-        ca_power = pd.DataFrame()
+        data = data.set_index("timestamp")
+        data.index = pd.to_datetime(data.index)
 
-    gti = gti.set_index("timestamp")
-    ghi = ghi.set_index("timestamp")
+        data = data.apply(pd.to_numeric, errors="coerce")
+    except FileNotFoundError:
+        data = pd.DataFrame()
 
-    gti = gti.apply(pd.to_numeric, errors="coerce")
-    ghi = ghi.apply(pd.to_numeric, errors="coerce")
-
-    return gti, ghi, ca_power
+    return data
 
 
 def get_location(solar_plant: str) -> Location:
@@ -151,23 +145,29 @@ def apply_filters(solar_plant: str, data: pd.DataFrame, avg: bool) -> pd.DataFra
     return data
 
 
+def generate_data(solar_plant: str, type_data: str, moving_averange: bool) -> None:
+    data = read_data(solar_plant, type_data)
+
+    if not data.empty:
+        status = "avg" if moving_averange else "original"
+
+        data = apply_filters(solar_plant, data, moving_averange)
+
+        match (type_data):
+            case "gti":
+                data.columns = [
+                    f"Piranômetro {chr(65 + i)}" for i in range(data.shape[1])
+                ]
+            case "ghi":
+                data.columns = ["GHI"]
+            case "ca_power":
+                data.columns = ["Potência CA"]
+
+        data.to_parquet(
+            PLANTS_PARAM[solar_plant]["datawarehouse"][f"{type_data}_{status}"]
+        )
+
+
 def generate_gti_ghi_ca(solar_plant: str, moving_averange: bool) -> None:
-    status = "avg" if moving_averange else "original"
-
-    gti, ghi, ca_power = read_data(solar_plant)
-
-    gti = apply_filters(solar_plant, gti, moving_averange)
-    ghi = apply_filters(solar_plant, ghi, moving_averange)
-
-    gti.columns = [f"Piranômetro {chr(65 + i)}" for i in range(gti.shape[1])]
-    ghi.columns = ["GHI"]
-
-    gti.to_parquet(PLANTS_PARAM[solar_plant][f"gti_{status}"])
-    ghi.to_parquet(PLANTS_PARAM[solar_plant][f"ghi_{status}"])
-
-    if not ca_power.empty:
-        ca_power = apply_filters(solar_plant, ca_power, moving_averange)
-
-        ca_power.columns = ["Potência CA"]
-
-        ca_power.to_parquet(PLANTS_PARAM[solar_plant][f"ca_power_{status}"])
+    for type_data in ["gti", "ghi", "ca_power"]:
+        generate_data(solar_plant, type_data, moving_averange)

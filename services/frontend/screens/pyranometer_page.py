@@ -11,19 +11,21 @@ COLORS = {"Stow": "#fcb774", "Indisponível": "#FF6961", "Disponível": "#009de9
 
 def get_data() -> None:
     st.session_state.gti = pd.read_parquet(
-        PLANTS_PARAM[st.session_state.solar_plant]["gti_avg"]
+        PLANTS_PARAM[st.session_state.solar_plant]["datawarehouse"]["gti_avg"]
     )
     st.session_state.teoric_irradiances = pd.read_parquet(
-        PLANTS_PARAM[st.session_state.solar_plant]["teoric_irradiances_avg"]
+        PLANTS_PARAM[st.session_state.solar_plant]["datawarehouse"][
+            "teoric_irradiances_avg"
+        ]
     )
     st.session_state.ghi = pd.read_parquet(
-        PLANTS_PARAM[st.session_state.solar_plant]["ghi_avg"]
+        PLANTS_PARAM[st.session_state.solar_plant]["datawarehouse"]["ghi_avg"]
     )
     st.session_state.clearsky = pd.read_parquet(
-        PLANTS_PARAM[st.session_state.solar_plant]["clearsky"]
+        PLANTS_PARAM[st.session_state.solar_plant]["datawarehouse"]["clearsky"]
     )
     st.session_state.classification = pd.read_parquet(
-        PLANTS_PARAM[st.session_state.solar_plant]["classification"]
+        PLANTS_PARAM[st.session_state.solar_plant]["datawarehouse"]["classification"]
     )
 
     st.session_state.min = st.session_state.gti.index.min()
