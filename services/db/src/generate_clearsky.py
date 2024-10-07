@@ -49,7 +49,7 @@ def get_clear_sky(solar_plant: str, date: pd.Timestamp) -> pd.Series:
 
 
 def generate_clearsky(solar_plant: str) -> None:
-    ghi = pd.read_parquet(PLANTS_PARAM[solar_plant]["ghi"])
+    ghi = pd.read_parquet(PLANTS_PARAM[solar_plant]["datalake"]["ghi"])
 
     begin = ghi["timestamp"].min()
     end = ghi["timestamp"].max()
@@ -65,4 +65,4 @@ def generate_clearsky(solar_plant: str) -> None:
         columns={"index": "timestamp", "ghi": "GHI teórico (clearsky)"}
     )
 
-    clearsky.to_parquet(PLANTS_PARAM[solar_plant]["clearsky"])
+    clearsky.to_parquet(PLANTS_PARAM[solar_plant]["datawarehouse"]["clearsky"])
