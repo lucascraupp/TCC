@@ -4,6 +4,7 @@ from src.generate_classification import generate_classification
 from src.generate_clearsky import generate_clearsky
 from src.generate_gti_ghi_ca import generate_gti_ghi_ca
 from src.generate_teoric_irradiances import generate_teoric_irradiances
+from src.generate_wind_speed_amb_temp import generate_wind_speed_amb_temp
 
 PLANTS_PARAM = json.load(open("services/resources/solar_plants.json"))
 
@@ -25,3 +26,6 @@ if __name__ == "__main__":
 
         print("\nPopulando as irradâncias teóricas...\n")
         generate_teoric_irradiances(solar_plant)
+
+        print("\nPouplando a velocidade do vento e temperatura ambiente...\n")
+        generate_wind_speed_amb_temp(solar_plant)
