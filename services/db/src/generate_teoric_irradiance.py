@@ -80,12 +80,12 @@ def generate_teoric_irradiance(solar_plant: str) -> None:
     process_irradiances(
         gti_avg,
         classification,
-        PLANTS_PARAM[solar_plant]["datawarehouse"]["teoric_irradiances_avg"],
+        PLANTS_PARAM[solar_plant]["datawarehouse"]["teoric_irradiance_avg"],
         date_range,
     )
     process_irradiances(
         gti_original,
         classification,
-        PLANTS_PARAM[solar_plant]["datawarehouse"]["teoric_irradiances_original"],
+        PLANTS_PARAM[solar_plant]["datawarehouse"]["teoric_irradiance_original"],
         date_range,
     )
