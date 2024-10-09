@@ -69,7 +69,7 @@ def generate_teoric_power(solar_plant: str, avg: bool) -> None:
 
         ivp = ivp[["Pac"]]
 
-    ivp = ivp.rename(columns={ivp.columns[0]: "Potência Teórica"})
+    ivp = ivp.rename(columns={ivp.columns[0]: "Potência teórica"})
 
     ivp.index = ivp.index.tz_localize(None)
 
