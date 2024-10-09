@@ -7,22 +7,6 @@ from pvlib.location import Location
 PLANTS_PARAM = json.load(open("services/resources/solar_plants.json"))
 
 
-def get_location(solar_plant: str) -> Location:
-    match (solar_plant):
-        case "CFPA":
-            latitude = -17.22129
-            longitude = -47.08851
-            tz = "Brazil/East"
-            altitude = 698.7
-        case "FVAE":
-            latitude = -5.571281337989798
-            longitude = -37.02877824468482
-            tz = "Brazil/East"
-            altitude = 71
-
-    return Location(latitude, longitude, tz=tz, altitude=altitude)
-
-
 def get_clear_sky(solar_plant: str, date: pd.Timestamp) -> pd.Series:
     loc = PLANTS_PARAM[solar_plant]["location"]
 
