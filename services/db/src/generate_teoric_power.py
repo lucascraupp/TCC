@@ -7,7 +7,7 @@ PLANTS_PARAM = json.load(open("services/resources/solar_plants.json"))
 SU_DATA = json.load(open("pvIFSC/pvpowerplants/plants.json"))
 
 
-def generate_helio_power(conditions: pd.DataFrame) -> None:
+def generate_helio_power(conditions: pd.DataFrame) -> pd.DataFrame:
     ivp_list = []
     su_map = {key: value for key, value in SU_DATA["plants"].items() if "SU" in key}
 
