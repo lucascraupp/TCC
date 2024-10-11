@@ -25,23 +25,7 @@ def read_data(solar_plant: str, type_data: str) -> pd.DataFrame:
     return data
 
 
-def get_location(solar_plant: str) -> Location:
-    match (solar_plant):
-        case "CFPA":
-            latitude = -17.22129
-            longitude = -47.08851
-            tz = "Brazil/East"
-            altitude = 698.7
-        case "FVAE":
-            latitude = -5.571281337989798
-            longitude = -37.02877824468482
-            tz = "Brazil/East"
-            altitude = 71
-
-    return Location(latitude, longitude, tz=tz, altitude=altitude)
-
-
-def get_clear_sky(solar_plant: str, date: pd.Timestamp) -> pd.Series:
+def get_clear_sky(solar_plant: str, date: pd.Timestamp) -> pd.DataFrame:
     loc = PLANTS_PARAM[solar_plant]["location"]
 
     times = pd.date_range(
@@ -63,21 +47,22 @@ def get_clear_sky(solar_plant: str, date: pd.Timestamp) -> pd.Series:
     clearsky.index = pd.to_datetime(clearsky.index)
     clearsky.index = clearsky.index.tz_localize(None)
 
-    return clearsky["ghi"]
+    return clearsky[["ghi"]]
+
+
+def round_minutes(hour: pd.Timestamp, percet: float) -> pd.Timedelta:
+    hour_seconds = hour.total_seconds()
+    # Arredondando o horário para baixo, para o múltiplo de 10 minutos mais próximo
+    hour_seconds = math.floor(percet * hour_seconds / 600) * 600
+    return pd.Timedelta(seconds=hour_seconds)
 
 
 def calculate_period_limits(solar_plant: str, date: pd.Timestamp) -> dict[str, tuple]:
     clearsky = get_clear_sky(solar_plant, date)
 
-    begin_irradiance = (clearsky > 0).idxmax()
-    end_irradiance = (clearsky > 0).iloc[::-1].idxmax()
-    max_irradiance = clearsky.idxmax()
-
-    def round_minutes(hour: pd.Timestamp, percet: float) -> pd.Timedelta:
-        hour_seconds = hour.total_seconds()
-        # Arredondando o horário para baixo, para o múltiplo de 10 minutos mais próximo
-        hour_seconds = math.floor(percet * hour_seconds / 600) * 600
-        return pd.Timedelta(seconds=hour_seconds)
+    begin_irradiance = (clearsky["ghi"] > 0).idxmax()
+    max_irradiance = clearsky["ghi"].idxmax()
+    end_irradiance = (clearsky["ghi"] > 0).iloc[::-1].idxmax()
 
     begin_morning = max_irradiance - begin_irradiance
     begin_morning = round_minutes(begin_morning, 0.75)
