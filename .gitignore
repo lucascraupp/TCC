@@ -6,6 +6,7 @@
 */resources/solar_plants.json
 *.bak
 */db/datawarehouse/*
+pvIFSC
 
 ### JupyterNotebooks ###
 # gitignore template for Jupyter Notebooks

@@ -71,20 +71,6 @@ def calculate_period_limits(
     return irradiance_limits, ghi_limits
 
 
-def sun_filter(
-    solar_plant: str, irradiance: pd.DataFrame, date: pd.Timestamp, n_jobs: int = -1
-) -> pd.DataFrame:
-    limits, _ = calculate_period_limits(solar_plant, date)
-
-    mask = (limits["morning"][0] <= irradiance.index) & (
-        irradiance.index <= limits["afternoon"][1]
-    )
-    irradiance_period = irradiance.copy()
-    irradiance_period.loc[~mask] = 0
-
-    return irradiance_period
-
-
 def remove_sensors_without_data_and_variance(
     irradiance: pd.DataFrame, ghi_limits: tuple
 ) -> pd.DataFrame:
@@ -225,9 +211,6 @@ def process_day(
     gti_day = gti.loc[gti.index.date == date.date()]
     ghi_day = ghi.loc[ghi.index.date == date.date()]
 
-    gti_day = sun_filter(solar_plant, gti_day, date)
-    ghi_day = sun_filter(solar_plant, ghi_day, date)
-
     irradiance_limits, ghi_limits = calculate_period_limits(solar_plant, date)
 
     classification = pd.DataFrame()
@@ -256,8 +239,8 @@ def process_day(
 
 
 def generate_classification(solar_plant: str) -> None:
-    gti = pd.read_parquet(PLANTS_PARAM[solar_plant]["gti_avg"])
-    ghi = pd.read_parquet(PLANTS_PARAM[solar_plant]["ghi_avg"])
+    gti = pd.read_parquet(PLANTS_PARAM[solar_plant]["datawarehouse"]["gti_avg"])
+    ghi = pd.read_parquet(PLANTS_PARAM[solar_plant]["datawarehouse"]["ghi_avg"])
 
     begin = gti.index.min()
     end = gti.index.max()
@@ -276,4 +259,6 @@ def generate_classification(solar_plant: str) -> None:
 
     classification = classification.fillna("Indisponível")
 
-    classification.to_parquet(PLANTS_PARAM[solar_plant]["classification"])
+    classification.to_parquet(
+        PLANTS_PARAM[solar_plant]["datawarehouse"]["classification"]
+    )
