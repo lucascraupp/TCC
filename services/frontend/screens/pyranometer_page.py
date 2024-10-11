@@ -15,7 +15,7 @@ def get_data() -> None:
     )
     st.session_state.teoric_irradiances = pd.read_parquet(
         PLANTS_PARAM[st.session_state.solar_plant]["datawarehouse"][
-            "teoric_irradiances_avg"
+            "teoric_irradiance_avg"
         ]
     )
     st.session_state.ghi = pd.read_parquet(
