@@ -36,3 +36,19 @@ Repositório destinado para o desenvolvimento do meu Trabalho de Conclusão de C
     ```bash
     pip install -r requirements.txt
     ```
+
+## Povoando o `datawarehouse`
+
+Execute o arquivo `main.py`
+
+```bash
+python3 services/db/main.py
+```
+
+## _Dashboards_
+
+Para visualizar as _dashboards_, execute o arquivo `Home.py`
+
+```bash
+streamlit run services/frontend/Home.py
+```
