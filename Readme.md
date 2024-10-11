@@ -7,7 +7,7 @@ Repositório destinado para o desenvolvimento do meu Trabalho de Conclusão de C
 - [Python](https://www.python.org/) 3.12.3 ou superior;
 - Acesso ao [Drive](https://drive.google.com/file/d/1kKfMldczB6TUfQgkRfr-tDqvCvMVX4If/view?usp=drive_link).
 
-> ** Observação: Deverá ser adicionada a pasta `datalake` em `services/resources/`
+> **Observação**: Deverá ser adicionada a pasta `datalake` em `services/resources/`
 
 ## Instalação
 1. Instale a biblioteca `pvIFSC` na raiz do projeto
