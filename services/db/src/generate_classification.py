@@ -146,9 +146,8 @@ def process_day(
     gti: pd.DataFrame,
     ghi: pd.DataFrame,
     clearsky: pd.DataFrame,
-    date: pd.Timestamp,
 ) -> pd.DataFrame:
-    irradiance_limits, ghi_limits = calculate_period_limits(clearsky, date)
+    irradiance_limits, ghi_limits = calculate_period_limits(clearsky)
 
     classification = pd.DataFrame()
 
@@ -190,7 +189,6 @@ def generate_classification(solar_plant: str) -> None:
             gti[gti.index.date == date.date()],
             ghi[ghi.index.date == date.date()],
             clearsky[clearsky.index.date == date.date()],
-            date,
         )
         for date in date_range
     )
