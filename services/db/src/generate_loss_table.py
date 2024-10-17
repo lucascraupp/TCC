@@ -24,7 +24,7 @@ def get_csi(
 
         csi = round(day_irradiation / teoric_irradiation, 2)
 
-    return csi
+    return csi if csi <= 1 else 1
 
 
 def get_day_loss(
