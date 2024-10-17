@@ -1,4 +1,5 @@
 import json
+import os
 
 import pandas as pd
 from joblib import Parallel, delayed
@@ -48,5 +49,10 @@ def generate_clearsky(solar_plant: str) -> None:
     clearsky = clearsky.rename(
         columns={"index": "timestamp", "ghi": "GHI teórico (clearsky)"}
     )
+
+    if not os.path.exists(PLANTS_PARAM[solar_plant]["datawarehouse"]["clearsky"]):
+        os.makedirs(
+            os.path.dirname(PLANTS_PARAM[solar_plant]["datawarehouse"]["clearsky"])
+        )
 
     clearsky.to_parquet(PLANTS_PARAM[solar_plant]["datawarehouse"]["clearsky"])
