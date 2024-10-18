@@ -1,74 +1,11 @@
 import json
-import math
 
 import numpy as np
 import pandas as pd
 from joblib import Parallel, delayed
-from pvlib.location import Location
+from src.generate_gti_ghi_ca import calculate_period_limits
 
 PLANTS_PARAM = json.load(open("services/resources/solar_plants.json"))
-
-
-def get_clear_sky(solar_plant: str, date: pd.Timestamp) -> pd.Series:
-    loc = PLANTS_PARAM[solar_plant]["location"]
-
-    times = pd.date_range(
-        start=date,
-        end=date + pd.Timedelta(days=1),
-        freq="10min",
-        inclusive="left",
-        tz=loc["tz"],
-    )
-
-    location = Location(
-        latitude=loc["latitude"],
-        longitude=loc["longitude"],
-        tz=loc["tz"],
-        altitude=loc["altitude"],
-    )
-
-    clearsky = location.get_clearsky(times)
-    clearsky.index = pd.to_datetime(clearsky.index)
-    clearsky.index = clearsky.index.tz_localize(None)
-
-    return clearsky["ghi"]
-
-
-def calculate_period_limits(
-    solar_plant: str, date: pd.Timestamp
-) -> tuple[dict[str, tuple], tuple]:
-    clearsky = get_clear_sky(solar_plant, date)
-
-    begin_irradiance = (clearsky > 0).idxmax()
-    end_irradiance = (clearsky > 0).iloc[::-1].idxmax()
-    max_irradiance = clearsky.idxmax()
-
-    def round_minutes(hour: pd.Timestamp, percet: float) -> pd.Timedelta:
-        hour_seconds = hour.total_seconds()
-        # Arredondando o horário para baixo, para o múltiplo de 10 minutos mais próximo
-        hour_seconds = math.floor(percet * hour_seconds / 600) * 600
-        return pd.Timedelta(seconds=hour_seconds)
-
-    begin_morning = max_irradiance - begin_irradiance
-    begin_morning = round_minutes(begin_morning, 0.75)
-
-    end_afternoon = end_irradiance - max_irradiance + pd.Timedelta(hours=10)
-    end_afternoon = round_minutes(end_afternoon, 1.15)
-
-    irradiance_limits = {
-        "morning": (
-            date + begin_morning,
-            date + pd.Timedelta(hours=12, minutes=0),
-        ),
-        "afternoon": (
-            date + pd.Timedelta(hours=12, seconds=1),
-            date + end_afternoon,
-        ),
-    }
-
-    ghi_limits = (begin_irradiance, end_irradiance)
-
-    return irradiance_limits, ghi_limits
 
 
 def remove_sensors_without_data_and_variance(
@@ -79,8 +16,8 @@ def remove_sensors_without_data_and_variance(
     # Removendo do DataFrame "irradiance", todos os sensores com valor 0 durante o período de GHI teórico
     irradiance = irradiance.loc[:, irradiance_limited.sum() > 0]
 
-    # Verificação se os dados do sensor são constantes por, pelo menos, 4 amostras consecutivas
-    same_value_for_a_time = irradiance_limited.rolling(window=4).apply(
+    # Verificação se os dados do sensor são constantes por, pelo menos, 7 amostras consecutivas
+    same_value_for_a_time = irradiance_limited.rolling(window=7).apply(
         lambda x: x.nunique() == 1
     )
     irradiance = irradiance.loc[:, ~same_value_for_a_time.any()]
@@ -93,7 +30,7 @@ def remove_sensors_without_data_and_variance(
         irradiance_sensor = irradiance[[sensor]]
 
         data_time = irradiance_sensor.index.hour * 60 + irradiance_sensor.index.minute
-        data_weights = irradiance_sensor[sensor].copy()
+        data_weights = irradiance_sensor[sensor]
 
         # Cálculo da média ponderada dos valores
         weighted_mean = (data_time * data_weights).sum() / data_weights.sum()
@@ -121,12 +58,12 @@ def remove_sensors_different_from_the_reference(
     for sensor in irradiance.columns:
         irradiance_sensor = irradiance[[sensor]]
 
-        sum_irradiance = irradiance_sensor.sum()
-        sum_reference = reference.sum()
+        sum_irradiance = sum(irradiance_sensor[sensor])
+        sum_reference = sum(reference)
 
         distance = sum_irradiance - sum_reference
 
-        if distance.min() < -max_distance:
+        if distance < -max_distance:
             irradiance = irradiance.drop(columns=[sensor])
 
     return irradiance
@@ -206,18 +143,17 @@ def classify_period_with_irradiance(
 
 
 def process_day(
-    solar_plant: str, gti: pd.DataFrame, ghi: pd.DataFrame, date: pd.Timestamp
+    gti: pd.DataFrame,
+    ghi: pd.DataFrame,
+    clearsky: pd.DataFrame,
 ) -> pd.DataFrame:
-    gti_day = gti.loc[gti.index.date == date.date()]
-    ghi_day = ghi.loc[ghi.index.date == date.date()]
-
-    irradiance_limits, ghi_limits = calculate_period_limits(solar_plant, date)
+    irradiance_limits, ghi_limits = calculate_period_limits(clearsky)
 
     classification = pd.DataFrame()
 
     for period in irradiance_limits.values():
-        gti_filtered = filter_data(gti_day, ghi_limits, period)
-        ghi_filtered = filter_data(ghi_day, ghi_limits, period)
+        gti_filtered = filter_data(gti, ghi_limits, period)
+        ghi_filtered = filter_data(ghi, ghi_limits, period)
 
         if ghi_filtered.empty:
             period_classification = classify_period_without_irradiance(gti_filtered)
@@ -241,6 +177,7 @@ def process_day(
 def generate_classification(solar_plant: str) -> None:
     gti = pd.read_parquet(PLANTS_PARAM[solar_plant]["datawarehouse"]["gti_avg"])
     ghi = pd.read_parquet(PLANTS_PARAM[solar_plant]["datawarehouse"]["ghi_avg"])
+    clearsky = pd.read_parquet(PLANTS_PARAM[solar_plant]["datawarehouse"]["clearsky"])
 
     begin = gti.index.min()
     end = gti.index.max()
@@ -248,7 +185,12 @@ def generate_classification(solar_plant: str) -> None:
     date_range = pd.date_range(begin, end, freq="D")
 
     classification_list = Parallel(n_jobs=-1)(
-        delayed(process_day)(solar_plant, gti, ghi, date) for date in date_range
+        delayed(process_day)(
+            gti[gti.index.date == date.date()],
+            ghi[ghi.index.date == date.date()],
+            clearsky[clearsky.index.date == date.date()],
+        )
+        for date in date_range
     )
 
     classification = pd.concat(classification_list)

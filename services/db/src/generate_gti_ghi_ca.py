@@ -1,10 +1,8 @@
 import json
 import math
-import os
 
 import pandas as pd
 from joblib import Parallel, delayed
-from pvlib.location import Location
 
 PLANTS_PARAM = json.load(open("services/resources/solar_plants.json"))
 
@@ -25,59 +23,17 @@ def read_data(solar_plant: str, type_data: str) -> pd.DataFrame:
     return data
 
 
-def get_location(solar_plant: str) -> Location:
-    match (solar_plant):
-        case "CFPA":
-            latitude = -17.22129
-            longitude = -47.08851
-            tz = "Brazil/East"
-            altitude = 698.7
-        case "FVAE":
-            latitude = -5.571281337989798
-            longitude = -37.02877824468482
-            tz = "Brazil/East"
-            altitude = 71
-
-    return Location(latitude, longitude, tz=tz, altitude=altitude)
+def round_minutes(hour: pd.Timestamp, percet: float) -> pd.Timedelta:
+    hour_seconds = hour.total_seconds()
+    # Arredondando o horário para baixo, para o múltiplo de 10 minutos mais próximo
+    hour_seconds = math.floor(percet * hour_seconds / 600) * 600
+    return pd.Timedelta(seconds=hour_seconds)
 
 
-def get_clear_sky(solar_plant: str, date: pd.Timestamp) -> pd.Series:
-    loc = PLANTS_PARAM[solar_plant]["location"]
-
-    times = pd.date_range(
-        start=date,
-        end=date + pd.Timedelta(days=1),
-        freq="10min",
-        inclusive="left",
-        tz=loc["tz"],
-    )
-
-    location = Location(
-        latitude=loc["latitude"],
-        longitude=loc["longitude"],
-        tz=loc["tz"],
-        altitude=loc["altitude"],
-    )
-
-    clearsky = location.get_clearsky(times)
-    clearsky.index = pd.to_datetime(clearsky.index)
-    clearsky.index = clearsky.index.tz_localize(None)
-
-    return clearsky["ghi"]
-
-
-def calculate_period_limits(solar_plant: str, date: pd.Timestamp) -> dict[str, tuple]:
-    clearsky = get_clear_sky(solar_plant, date)
-
-    begin_irradiance = (clearsky > 0).idxmax()
-    end_irradiance = (clearsky > 0).iloc[::-1].idxmax()
-    max_irradiance = clearsky.idxmax()
-
-    def round_minutes(hour: pd.Timestamp, percet: float) -> pd.Timedelta:
-        hour_seconds = hour.total_seconds()
-        # Arredondando o horário para baixo, para o múltiplo de 10 minutos mais próximo
-        hour_seconds = math.floor(percet * hour_seconds / 600) * 600
-        return pd.Timedelta(seconds=hour_seconds)
+def calculate_period_limits(clearsky: pd.DataFrame) -> tuple[dict[str, tuple], tuple]:
+    begin_irradiance = (clearsky[clearsky.columns[0]] > 0).idxmax()
+    end_irradiance = (clearsky[clearsky.columns[0]] > 0).iloc[::-1].idxmax()
+    max_irradiance = clearsky[clearsky.columns[0]].idxmax()
 
     begin_morning = max_irradiance - begin_irradiance
     begin_morning = round_minutes(begin_morning, 0.75)
@@ -85,7 +41,9 @@ def calculate_period_limits(solar_plant: str, date: pd.Timestamp) -> dict[str, t
     end_afternoon = end_irradiance - max_irradiance + pd.Timedelta(hours=10)
     end_afternoon = round_minutes(end_afternoon, 1.15)
 
-    return {
+    date = clearsky.index[0]
+
+    irradiance_limits = {
         "morning": (
             date + begin_morning,
             date + pd.Timedelta(hours=12, minutes=0),
@@ -96,34 +54,37 @@ def calculate_period_limits(solar_plant: str, date: pd.Timestamp) -> dict[str, t
         ),
     }
 
+    ghi_limits = (begin_irradiance, end_irradiance)
 
-def process_day(
-    solar_plant: str, date: pd.Timestamp, irradiance: pd.DataFrame
-) -> pd.DataFrame:
-    limits = calculate_period_limits(solar_plant, date)
-    irradiance_day = irradiance[irradiance.index.date == date.date()]
+    return irradiance_limits, ghi_limits
 
-    mask = (limits["morning"][0] <= irradiance_day.index) & (
-        irradiance_day.index <= limits["afternoon"][1]
+
+def process_day(irradiance: pd.DataFrame, clearsky: pd.DataFrame) -> pd.DataFrame:
+    limits, _ = calculate_period_limits(clearsky)
+
+    mask = (limits["morning"][0] <= irradiance.index) & (
+        irradiance.index <= limits["afternoon"][1]
     )
-    irradiance_period = irradiance_day.copy()
+    irradiance_period = irradiance.copy()
     irradiance_period.loc[~mask] = 0
 
     return irradiance_period
 
 
-def sun_filter(
-    solar_plant: str, irradiance: pd.DataFrame, n_jobs: int = -1
-) -> pd.DataFrame:
+def solar_filter(irradiance: pd.DataFrame, clearsky: pd.DataFrame) -> pd.DataFrame:
     begin = irradiance.index.min()
     end = irradiance.index.max()
 
     # Gerando uma lista de datas para o intervalo
-    dates = pd.date_range(begin, end, freq="D")
+    date_range = pd.date_range(begin, end, freq="D")
 
     # Processando os dias em paralelo usando joblib
-    irradiance_filtered_list = Parallel(n_jobs=n_jobs)(
-        delayed(process_day)(solar_plant, date, irradiance) for date in dates
+    irradiance_filtered_list = Parallel(n_jobs=-1)(
+        delayed(process_day)(
+            irradiance[irradiance.index.date == date.date()],
+            clearsky[clearsky.index.date == date.date()],
+        )
+        for date in date_range
     )
 
     irradiance_filtered = pd.concat(irradiance_filtered_list)
@@ -131,8 +92,10 @@ def sun_filter(
     return irradiance_filtered
 
 
-def apply_filters(solar_plant: str, data: pd.DataFrame, avg: bool) -> pd.DataFrame:
-    data = sun_filter(solar_plant, data)
+def apply_filters(
+    data: pd.DataFrame, avg: bool, clearsky: pd.DataFrame
+) -> pd.DataFrame:
+    data = solar_filter(data, clearsky)
 
     if avg:
         window = 11
@@ -145,13 +108,15 @@ def apply_filters(solar_plant: str, data: pd.DataFrame, avg: bool) -> pd.DataFra
     return data
 
 
-def generate_data(solar_plant: str, type_data: str, moving_averange: bool) -> None:
+def generate_data(
+    solar_plant: str, type_data: str, avg: bool, clearsky: pd.DataFrame
+) -> None:
     data = read_data(solar_plant, type_data)
 
     if not data.empty:
-        status = "avg" if moving_averange else "original"
+        status = "avg" if avg else "original"
 
-        data = apply_filters(solar_plant, data, moving_averange)
+        data = apply_filters(data, avg, clearsky)
 
         match (type_data):
             case "gti":
@@ -169,5 +134,7 @@ def generate_data(solar_plant: str, type_data: str, moving_averange: bool) -> No
 
 
 def generate_gti_ghi_ca(solar_plant: str, moving_averange: bool) -> None:
+    clearsky = pd.read_parquet(PLANTS_PARAM[solar_plant]["datawarehouse"]["clearsky"])
+
     for type_data in ["gti", "ghi", "ca_power"]:
-        generate_data(solar_plant, type_data, moving_averange)
+        generate_data(solar_plant, type_data, moving_averange, clearsky)
