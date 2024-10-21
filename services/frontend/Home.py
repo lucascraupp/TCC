@@ -5,7 +5,7 @@ from streamlit_option_menu import option_menu
 # Configuração de metadados da página
 st.set_page_config(
     page_title="TCC Dashboard",
-    page_icon="services/resources/assets/sol.png",
+    page_icon="resources/assets/sol.png",
     layout="wide",
     initial_sidebar_state="collapsed",
 )

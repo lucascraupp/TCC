@@ -5,7 +5,7 @@ import pandas as pd
 from joblib import Parallel, delayed
 from pvlib.location import Location
 
-PLANTS_PARAM = json.load(open("services/resources/solar_plants.json"))
+PLANTS_PARAM = json.load(open("resources/solar_plants.json"))
 
 
 def get_clear_sky(solar_plant: str, date: pd.Timestamp) -> pd.Series:

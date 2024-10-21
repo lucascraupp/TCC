@@ -3,7 +3,7 @@ import json
 import pandas as pd
 from joblib import Parallel, delayed
 
-PLANTS_PARAM = json.load(open("services/resources/solar_plants.json"))
+PLANTS_PARAM = json.load(open("resources/solar_plants.json"))
 
 
 def get_period_irradiances(
