@@ -1,9 +1,9 @@
 # Created by https://www.toptal.com/developers/gitignore/api/visualstudiocode,visualstudio,python,jupyternotebooks
 # Edit at https://www.toptal.com/developers/gitignore?templates=visualstudiocode,visualstudio,python,jupyternotebooks
 
-*/resources/datalake/*
-*/resources/mysql
-*/resources/solar_plants.json
+resources/datalake/*
+resources/mysql
+resources/solar_plants.json
 *.bak
 */db/datawarehouse/*
 pvIFSC

@@ -9,7 +9,7 @@ from src.generate_teoric_irradiance import generate_teoric_irradiance
 from src.generate_teoric_power import generate_teoric_power
 from src.generate_wind_speed_amb_temp import generate_wind_speed_amb_temp
 
-PLANTS_PARAM = json.load(open("services/resources/solar_plants.json"))
+PLANTS_PARAM = json.load(open("resources/solar_plants.json"))
 
 if __name__ == "__main__":
     for solar_plant in PLANTS_PARAM.keys():
