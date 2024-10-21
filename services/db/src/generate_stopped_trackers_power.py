@@ -3,6 +3,7 @@ import os
 
 import pandas as pd
 import pvpowerplants.plant as pvp
+import structlog
 
 PLANTS_PARAM = json.load(open("resources/solar_plants.json"))
 SU_DATA = json.load(open("pvIFSC/pvpowerplants/plants.json"))
@@ -94,8 +95,12 @@ def generate_stopped_trackers_power(solar_plant: str) -> None:
     else:
         ivp = pd.DataFrame()
 
+    log = structlog.get_logger()
+
     for angle in angle_list:
         if not f"Potência teórica {angle}°" in ivp.columns:
+            log.info(f"Gerando potência teórica para ângulo {angle}°...")
+
             ivp_angle = select_power_plant(solar_plant, conditions, angle)
 
             ivp_angle.index = ivp_angle.index.tz_localize(None)
@@ -105,3 +110,5 @@ def generate_stopped_trackers_power(solar_plant: str) -> None:
             ivp.to_parquet(
                 PLANTS_PARAM[solar_plant]["datawarehouse"]["stopped_trackers_power"]
             )
+        else:
+            log.info(f"Potência teórica para ângulo {angle}° já existe")
