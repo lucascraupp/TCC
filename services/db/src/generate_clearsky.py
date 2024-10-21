@@ -50,9 +50,9 @@ def generate_clearsky(solar_plant: str) -> None:
         columns={"index": "timestamp", "ghi": "GHI teórico (clearsky)"}
     )
 
-    if not os.path.exists(PLANTS_PARAM[solar_plant]["datawarehouse"]["clearsky"]):
-        os.makedirs(
-            os.path.dirname(PLANTS_PARAM[solar_plant]["datawarehouse"]["clearsky"])
-        )
+    path = PLANTS_PARAM[solar_plant]["datawarehouse"]["clearsky"]
 
-    clearsky.to_parquet(PLANTS_PARAM[solar_plant]["datawarehouse"]["clearsky"])
+    if not os.path.exists(path):
+        os.makedirs(os.path.dirname(path))
+
+    clearsky.to_parquet(path)
