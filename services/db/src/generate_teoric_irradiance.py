@@ -66,26 +66,19 @@ def process_irradiances(
     pd.concat(teoric_irradiances_list).to_parquet(path)
 
 
-def generate_teoric_irradiance(solar_plant: str) -> None:
-    gti_avg = pd.read_parquet(PLANTS_PARAM[solar_plant]["datawarehouse"]["gti_avg"])
-    gti_original = pd.read_parquet(
-        PLANTS_PARAM[solar_plant]["datawarehouse"]["gti_original"]
-    )
+def generate_teoric_irradiance(solar_plant: str, moving_averange: bool) -> None:
+    status = "avg" if moving_averange else "original"
+
+    gti = pd.read_parquet(PLANTS_PARAM[solar_plant]["datawarehouse"][f"gti_{status}"])
     classification = pd.read_parquet(
         PLANTS_PARAM[solar_plant]["datawarehouse"]["classification"]
     ).drop(columns=["GHI"])
 
-    date_range = pd.date_range(gti_avg.index.min(), gti_avg.index.max(), freq="D")
+    date_range = pd.date_range(gti.index.min(), gti.index.max(), freq="D")
 
     process_irradiances(
-        gti_avg,
+        gti,
         classification,
-        PLANTS_PARAM[solar_plant]["datawarehouse"]["teoric_irradiance_avg"],
-        date_range,
-    )
-    process_irradiances(
-        gti_original,
-        classification,
-        PLANTS_PARAM[solar_plant]["datawarehouse"]["teoric_irradiance_original"],
+        PLANTS_PARAM[solar_plant]["datawarehouse"][f"teoric_irradiance_{status}"],
         date_range,
     )
