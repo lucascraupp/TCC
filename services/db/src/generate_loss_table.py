@@ -1,6 +1,7 @@
 import json
 
 import pandas as pd
+import structlog
 from joblib import Parallel, delayed
 
 PLANTS_PARAM = json.load(open("resources/solar_plants.json"))
@@ -69,6 +70,10 @@ def get_day_loss(
 
 
 def generate_loss_table(solar_plant: str) -> None:
+    log = structlog.get_logger()
+
+    log.info("Gerando variável", var="Data, CSI, Angulação (°), Perda (%)")
+
     ghi = pd.read_parquet(PLANTS_PARAM[solar_plant]["datawarehouse"]["ghi_avg"])
 
     classification = pd.read_parquet(
@@ -87,7 +92,7 @@ def generate_loss_table(solar_plant: str) -> None:
     begin = teoric_power.index.min()
     end = teoric_power.index.max()
 
-    dates = pd.date_range(begin, end, freq="D")
+    date_range = pd.date_range(begin, end, freq="D")
 
     loss_list = Parallel(n_jobs=-1)(
         delayed(get_day_loss)(
@@ -97,11 +102,15 @@ def generate_loss_table(solar_plant: str) -> None:
             teoric_power[teoric_power.index.date == date.date()],
             stopped_trackers_power[stopped_trackers_power.index.date == date.date()],
         )
-        for date in dates
+        for date in date_range
     )
 
     loss_table = pd.concat(loss_list)
     loss_table = loss_table.sort_values(["Data", "Angulação (°)"])
     loss_table = loss_table.reset_index(drop=True)
 
-    loss_table.to_parquet(PLANTS_PARAM[solar_plant]["datawarehouse"]["loss_table"])
+    path = PLANTS_PARAM[solar_plant]["datawarehouse"]["loss_table"]
+
+    loss_table.to_parquet(path)
+
+    log.info("Dados salvos", filename=path)

@@ -1,6 +1,7 @@
 import json
 
 import pandas as pd
+import structlog
 from joblib import Parallel, delayed
 
 PLANTS_PARAM = json.load(open("resources/solar_plants.json"))
@@ -53,32 +54,31 @@ def process_day(
     return pd.concat(teoric_irradiances_list)
 
 
-def process_irradiances(
-    gti_data: pd.DataFrame,
-    classification: pd.DataFrame,
-    path: str,
-    date_range: pd.DatetimeIndex,
-) -> None:
-    teoric_irradiances_list = Parallel(n_jobs=-1)(
-        delayed(process_day)(gti_data, classification, date) for date in date_range
-    )
+def generate_teoric_irradiance(solar_plant: str, avg: bool) -> None:
+    log = structlog.get_logger()
 
-    pd.concat(teoric_irradiances_list).to_parquet(path)
+    status = "avg" if avg else "original"
 
-
-def generate_teoric_irradiance(solar_plant: str, moving_averange: bool) -> None:
-    status = "avg" if moving_averange else "original"
+    log.info("Gerando variável", var="GTI teórico", AVG=True if avg else False)
 
     gti = pd.read_parquet(PLANTS_PARAM[solar_plant]["datawarehouse"][f"gti_{status}"])
     classification = pd.read_parquet(
         PLANTS_PARAM[solar_plant]["datawarehouse"]["classification"]
     ).drop(columns=["GHI"])
 
-    date_range = pd.date_range(gti.index.min(), gti.index.max(), freq="D")
+    begin = gti.index.min()
+    end = gti.index.max()
 
-    process_irradiances(
-        gti,
-        classification,
-        PLANTS_PARAM[solar_plant]["datawarehouse"][f"teoric_irradiance_{status}"],
-        date_range,
+    date_range = pd.date_range(begin, end, freq="D")
+
+    teoric_irradiance_list = Parallel(n_jobs=-1)(
+        delayed(process_day)(gti, classification, date) for date in date_range
     )
+
+    teoric_irradiance = pd.concat(teoric_irradiance_list)
+
+    path = PLANTS_PARAM[solar_plant]["datawarehouse"][f"teoric_irradiance_{status}"]
+
+    teoric_irradiance.to_parquet(path)
+
+    log.info("Dados salvos", filename=path)

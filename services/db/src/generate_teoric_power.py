@@ -2,6 +2,7 @@ import json
 
 import pandas as pd
 import pvpowerplants.plant as pvp
+import structlog
 
 PLANTS_PARAM = json.load(open("resources/solar_plants.json"))
 SU_DATA = json.load(open("pvIFSC/pvpowerplants/plants.json"))
@@ -30,7 +31,11 @@ def generate_helio_power(conditions: pd.DataFrame) -> pd.DataFrame:
 
 
 def generate_teoric_power(solar_plant: str, avg: bool) -> None:
+    log = structlog.get_logger()
+
     sufix = "avg" if avg else "original"
+
+    log.info("Gerando variável", var="Potência teórica", AVG=True if avg else False)
 
     teoric_irradiance = pd.read_parquet(
         PLANTS_PARAM[solar_plant]["datawarehouse"][f"teoric_irradiance_{sufix}"]
@@ -53,9 +58,9 @@ def generate_teoric_power(solar_plant: str, avg: bool) -> None:
 
     tz = PLANTS_PARAM[solar_plant]["location"]["tz"]
 
-    data_range = pd.date_range(start=begin, end=end, freq="10min", tz=tz)
+    date_range = pd.date_range(start=begin, end=end, freq="10min", tz=tz)
 
-    conditions = conditions.set_index(data_range)
+    conditions = conditions.set_index(date_range)
 
     if solar_plant == "Hélio":
         ivp = generate_helio_power(conditions)
@@ -73,4 +78,8 @@ def generate_teoric_power(solar_plant: str, avg: bool) -> None:
 
     ivp.index = ivp.index.tz_localize(None)
 
-    ivp.to_parquet(PLANTS_PARAM[solar_plant]["datawarehouse"][f"teoric_power_{sufix}"])
+    path = PLANTS_PARAM[solar_plant]["datawarehouse"][f"teoric_power_{sufix}"]
+
+    ivp.to_parquet(path)
+
+    log.info("Dados salvos", filename=path)

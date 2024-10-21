@@ -1,6 +1,7 @@
 import json
 
 import pandas as pd
+import structlog
 
 PLANTS_PARAM = json.load(open("resources/solar_plants.json"))
 
@@ -23,7 +24,15 @@ def process_data(solar_plant: str, type_data: str) -> pd.DataFrame:
 
 
 def generate_wind_speed_amb_temp(solar_plant: str) -> None:
+    log = structlog.get_logger()
+
     for type_data in ["wind_speed", "amb_temp"]:
+        log.info("Gerando variável", var=type_data)
+
         data = process_data(solar_plant, type_data)
 
-        data.to_parquet(PLANTS_PARAM[solar_plant]["datawarehouse"][type_data])
+        path = PLANTS_PARAM[solar_plant]["datawarehouse"][type_data]
+
+        data.to_parquet(path)
+
+        log.info("Dados salvos", filename=path)

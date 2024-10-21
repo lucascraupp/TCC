@@ -2,6 +2,7 @@ import json
 import math
 
 import pandas as pd
+import structlog
 from joblib import Parallel, delayed
 
 PLANTS_PARAM = json.load(open("resources/solar_plants.json"))
@@ -108,13 +109,17 @@ def apply_filters(
     return data
 
 
-def generate_data(
-    solar_plant: str, type_data: str, avg: bool, clearsky: pd.DataFrame
-) -> None:
-    data = read_data(solar_plant, type_data)
+def generate_gti_ghi_ca(solar_plant: str, avg: bool) -> None:
+    clearsky = pd.read_parquet(PLANTS_PARAM[solar_plant]["datawarehouse"]["clearsky"])
 
-    if not data.empty:
+    log = structlog.get_logger()
+
+    for type_data in ["gti", "ghi", "ca_power"]:
+        data = read_data(solar_plant, type_data)
+
         status = "avg" if avg else "original"
+
+        log.info("Gerando variável", var=type_data, AVG=True if avg else False)
 
         data = apply_filters(data, avg, clearsky)
 
@@ -128,13 +133,8 @@ def generate_data(
             case "ca_power":
                 data.columns = ["Potência CA"]
 
-        data.to_parquet(
-            PLANTS_PARAM[solar_plant]["datawarehouse"][f"{type_data}_{status}"]
-        )
+        path = PLANTS_PARAM[solar_plant]["datawarehouse"][f"{type_data}_{status}"]
 
+        data.to_parquet(path)
 
-def generate_gti_ghi_ca(solar_plant: str, moving_averange: bool) -> None:
-    clearsky = pd.read_parquet(PLANTS_PARAM[solar_plant]["datawarehouse"]["clearsky"])
-
-    for type_data in ["gti", "ghi", "ca_power"]:
-        generate_data(solar_plant, type_data, moving_averange, clearsky)
+        log.info("Dados salvos", filename=path)

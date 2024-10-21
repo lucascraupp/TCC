@@ -2,6 +2,7 @@ import json
 
 import numpy as np
 import pandas as pd
+import structlog
 from joblib import Parallel, delayed
 from src.generate_gti_ghi_ca import calculate_period_limits
 
@@ -175,6 +176,10 @@ def process_day(
 
 
 def generate_classification(solar_plant: str) -> None:
+    log = structlog.get_logger()
+
+    log.info("Gerando variável", var="classification")
+
     gti = pd.read_parquet(PLANTS_PARAM[solar_plant]["datawarehouse"]["gti_avg"])
     ghi = pd.read_parquet(PLANTS_PARAM[solar_plant]["datawarehouse"]["ghi_avg"])
     clearsky = pd.read_parquet(PLANTS_PARAM[solar_plant]["datawarehouse"]["clearsky"])
@@ -201,6 +206,8 @@ def generate_classification(solar_plant: str) -> None:
 
     classification = classification.fillna("Indisponível")
 
-    classification.to_parquet(
-        PLANTS_PARAM[solar_plant]["datawarehouse"]["classification"]
-    )
+    path = PLANTS_PARAM[solar_plant]["datawarehouse"]["classification"]
+
+    classification.to_parquet(path)
+
+    log.info("Dados salvos", filename=path)

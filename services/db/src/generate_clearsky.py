@@ -2,6 +2,7 @@ import json
 import os
 
 import pandas as pd
+import structlog
 from joblib import Parallel, delayed
 from pvlib.location import Location
 
@@ -34,15 +35,19 @@ def get_clear_sky(solar_plant: str, date: pd.Timestamp) -> pd.Series:
 
 
 def generate_clearsky(solar_plant: str) -> None:
+    log = structlog.get_logger()
+
+    log.info("Gerando variável", var="clearsky")
+
     ghi = pd.read_parquet(PLANTS_PARAM[solar_plant]["datalake"]["ghi"])
 
     begin = ghi["timestamp"].min()
     end = ghi["timestamp"].max()
 
-    dates = pd.date_range(start=begin, end=end, freq="D")
+    date_range = pd.date_range(start=begin, end=end, freq="D")
 
     clearsky = Parallel(n_jobs=-1)(
-        delayed(get_clear_sky)(solar_plant, date) for date in dates
+        delayed(get_clear_sky)(solar_plant, date) for date in date_range
     )
 
     clearsky = pd.concat(clearsky)
@@ -56,3 +61,5 @@ def generate_clearsky(solar_plant: str) -> None:
         os.makedirs(os.path.dirname(path))
 
     clearsky.to_parquet(path)
+
+    log.info("Dados salvos", filename=path)

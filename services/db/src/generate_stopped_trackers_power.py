@@ -80,18 +80,16 @@ def generate_stopped_trackers_power(solar_plant: str) -> None:
 
     tz = PLANTS_PARAM[solar_plant]["location"]["tz"]
 
-    data_range = pd.date_range(start=begin, end=end, freq="10min", tz=tz)
+    date_range = pd.date_range(start=begin, end=end, freq="10min", tz=tz)
 
-    conditions = conditions.set_index(data_range)
+    conditions = conditions.set_index(date_range)
 
     angle_list = list(range(BEGIN_ANGLE, END_ANGLE + ANGLE_STEP, ANGLE_STEP))
 
     path = PLANTS_PARAM[solar_plant]["datawarehouse"]["stopped_trackers_power"]
 
     if os.path.exists(path):
-        ivp = pd.read_parquet(
-            PLANTS_PARAM[solar_plant]["datawarehouse"]["stopped_trackers_power"]
-        )
+        ivp = pd.read_parquet(path)
     else:
         ivp = pd.DataFrame()
 
@@ -107,8 +105,8 @@ def generate_stopped_trackers_power(solar_plant: str) -> None:
 
             ivp = pd.concat([ivp, ivp_angle], axis=1)
 
-            ivp.to_parquet(
-                PLANTS_PARAM[solar_plant]["datawarehouse"]["stopped_trackers_power"]
-            )
+            ivp.to_parquet(path)
         else:
             log.info(f"Potência teórica para ângulo {angle}° já existe")
+
+    log.info("Dados salvos", filename=path)
