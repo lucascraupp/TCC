@@ -35,7 +35,7 @@ def generate_teoric_power(solar_plant: str, avg: bool) -> None:
 
     sufix = "avg" if avg else "original"
 
-    log.info("Gerando variável", var="Potência teórica", AVG=True if avg else False)
+    log.info("Gerando variável", var="Potência teórica GTI", AVG=True if avg else False)
 
     teoric_irradiance = pd.read_parquet(
         PLANTS_PARAM[solar_plant]["datawarehouse"][f"teoric_irradiance_{sufix}"]
@@ -74,7 +74,7 @@ def generate_teoric_power(solar_plant: str, avg: bool) -> None:
 
         ivp = ivp[["Pac"]]
 
-    ivp = ivp.rename(columns={ivp.columns[0]: "Potência teórica"})
+    ivp = ivp.rename(columns={ivp.columns[0]: "Potência teórica GTI"})
 
     ivp.index = ivp.index.tz_localize(None)
 

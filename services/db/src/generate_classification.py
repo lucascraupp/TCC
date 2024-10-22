@@ -14,8 +14,9 @@ def remove_sensors_without_data_and_variance(
 ) -> pd.DataFrame:
     irradiance_limited = irradiance.loc[ghi_limits[0] : ghi_limits[1]]
 
-    # Removendo do DataFrame "irradiance", todos os sensores com valor 0 durante o período de GHI teórico
-    irradiance = irradiance.loc[:, irradiance_limited.sum() > 0]
+    """ Removendo do DataFrame "irradiance", todos os sensores com valor
+    None durante o período de GHI teórico """
+    irradiance = irradiance.loc[:, irradiance_limited.notna().all()]
 
     # Verificação se os dados do sensor são constantes por, pelo menos, 7 amostras consecutivas
     same_value_for_a_time = irradiance_limited.rolling(window=7).apply(

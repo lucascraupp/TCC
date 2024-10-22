@@ -12,7 +12,7 @@ def get_period_irradiances(
     classification: pd.DataFrame,
     begin: pd.Timestamp,
     end: pd.Timestamp,
-) -> pd.DataFrame:
+) -> pd.DataFrame | None:
     gti_period = gti.loc[begin:end]
     classification_period = classification.loc[begin:end]
 
@@ -20,12 +20,7 @@ def get_period_irradiances(
         :, (classification_period == "Disponível").all()
     ]
 
-    if classification_period.empty:
-        return pd.DataFrame(
-            {"GTI teórico": 0},
-            index=gti_period.index,
-        )
-    else:
+    if not classification_period.empty:
         gti_period = gti_period[classification_period.columns]
 
         teoric_gti = gti_period.median(axis=1)
@@ -37,7 +32,7 @@ def process_day(
     gti: pd.DataFrame,
     classification: pd.DataFrame,
     date: pd.Timestamp,
-) -> pd.DataFrame:
+) -> pd.DataFrame | None:
     gti_day = gti.loc[gti.index.date == date.date()]
     classification_day = classification.loc[classification.index.date == date.date()]
 
@@ -47,11 +42,18 @@ def process_day(
     ]
 
     teoric_irradiances_list = [
-        get_period_irradiances(gti_day, classification_day, begin, end)
+        irradiance
         for begin, end in limits
+        if (
+            irradiance := get_period_irradiances(
+                gti_day, classification_day, begin, end
+            )
+        )
+        is not None
     ]
 
-    return pd.concat(teoric_irradiances_list)
+    if teoric_irradiances_list:
+        return pd.concat(teoric_irradiances_list)
 
 
 def generate_teoric_irradiance(solar_plant: str, avg: bool) -> None:

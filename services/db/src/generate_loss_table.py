@@ -25,7 +25,9 @@ def get_csi(
 
         csi = round(day_irradiation / teoric_irradiation, 2)
 
-    return csi if csi <= 1 else 1
+        csi = min(csi, 1)
+
+    return csi
 
 
 def get_day_loss(
@@ -49,7 +51,7 @@ def get_day_loss(
     ):
         return None
     else:
-        day_power = teoric_power["Potência teórica"].sum()
+        day_power = teoric_power["Potência teórica GTI"].sum()
         percentual_loss = round(
             (day_power - stopped_trackers_power.sum()) / day_power * 100, 2
         )

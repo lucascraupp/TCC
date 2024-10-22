@@ -14,8 +14,6 @@ def process_data(solar_plant: str, type_data: str) -> pd.DataFrame:
 
     data = data.apply(pd.to_numeric, errors="coerce")
 
-    data = data.fillna(0)
-
     type_data = data.columns[0].split("\\")[-1]
 
     data = data.rename(columns={data.columns[0]: type_data})

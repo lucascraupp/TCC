@@ -104,8 +104,6 @@ def apply_filters(
         data = data.rolling(window=window).mean()
         data = data.shift(-((window - 1) // 2))
 
-    data = data.fillna(0)
-
     return data
 
 
