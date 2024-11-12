@@ -86,7 +86,7 @@ def header() -> None:
             st.stop()
 
 
-def generate_temporal_series(fig: go.Figure) -> None:
+def generate_temporal_series() -> go.Figure:
     gti = st.session_state.gti
     teoric_irradiances = st.session_state.teoric_irradiances
     ghi = st.session_state.ghi
@@ -102,33 +102,32 @@ def generate_temporal_series(fig: go.Figure) -> None:
 
     df = pd.concat([gti, teoric_irradiances, ghi], axis=1)
 
-    for sensor in df.columns:
-        fig.add_trace(
+    ts = go.Figure(
+        data=[
             go.Scatter(
                 x=df.index,
                 y=df[sensor],
                 name=sensor,
                 legendgroup=sensor,
+            )
+            for sensor in df.columns
+        ]
+        + [
+            # Adiciona GHI (ClearSky)
+            go.Scatter(
+                x=clearsky.index,
+                y=clearsky[clearsky.columns[0]],
+                name="GHI teórico (clearsky)",
+                line=dict(color="gray", width=1.5, dash="dash"),
+                legendgroup="GHI teórico",
             ),
-            row=1,
-            col=1,
-        )
-
-    # Adiciona GHI (ClearSky)
-    fig.add_trace(
-        go.Scatter(
-            x=clearsky.index,
-            y=clearsky[clearsky.columns[0]],
-            name="GHI teórico (clearsky)",
-            line=dict(color="gray", width=1.5, dash="dash"),
-            legendgroup="GHI teórico",
-        ),
-        row=1,
-        col=1,
+        ],
     )
 
+    return ts
 
-def generate_gantt_chart(fig: go.Figure) -> None:
+
+def generate_gantt_chart() -> go.Figure:
     classification = st.session_state.classification
     begin, end = st.session_state.date_range
 
@@ -166,10 +165,8 @@ def generate_gantt_chart(fig: go.Figure) -> None:
         axis=1,
     )
 
-    timeline = go.Figure()
-
-    for _, row in gantt_chart.iterrows():
-        timeline.add_trace(
+    gc = go.Figure(
+        data=[
             go.Scatter(
                 x=[row["start"], row["end"]],
                 y=[row["sensor"]] * 5,
@@ -182,22 +179,19 @@ def generate_gantt_chart(fig: go.Figure) -> None:
                 name=row["sensor"],  # Specify the name for the legend group
                 legendgroup=row["sensor"],  # Set the legend group identifier
             )
-        )
+            for _, row in gantt_chart.iterrows()
+        ]
+    )
 
     # Cria um dicionário de mapeamento da ordem dos sensores no gantt_chart
     sensor_order = {
         sensor: i for i, sensor in enumerate(gantt_chart["sensor"].unique())
     }
 
-    # Ordena timeline.data com base na ordem dos sensores no gantt_chart
-    timeline.data = sorted(
-        timeline.data, key=lambda trace: sensor_order[trace.name], reverse=True
-    )
+    # Ordena gc.data com base na ordem dos sensores no gantt_chart
+    gc.data = sorted(gc.data, key=lambda trace: sensor_order[trace.name], reverse=True)
 
-    for trace in timeline.data:
-        fig.add_trace(trace, row=2, col=1)
-
-    return fig
+    return gc
 
 
 def plot_graphs() -> None:
@@ -212,17 +206,46 @@ def plot_graphs() -> None:
         ),
     )
 
-    generate_temporal_series(fig)
-    generate_gantt_chart(fig)
+    ts = generate_temporal_series()
+    gc = generate_gantt_chart()
 
-    fig.update_xaxes(title_text="Timestamp", row=2, col=1)
+    for trace in ts.data:
+        fig.add_trace(trace, row=1, col=1)
 
-    fig.update_yaxes(title_text="Irradiância (W/m²)", row=1, col=1)
-    fig.update_yaxes(title_text="Sensores", row=2, col=1)
+    for trace in gc.data:
+        fig.add_trace(trace, row=2, col=1)
+
+    fig.update_yaxes(
+        title_text="Irradiância (W/m²)",
+        title_font=dict(size=16),
+        tickfont=dict(size=16),
+        row=1,
+        col=1,
+    )
+
+    fig.update_xaxes(
+        title_text="Timestamp",
+        title_font=dict(size=16),
+        tickfont=dict(size=16),
+        row=2,
+        col=1,
+    )
+
+    fig.update_yaxes(
+        title_text="Sensores",
+        title_font=dict(size=16),
+        tickfont=dict(size=14),
+        row=2,
+        col=1,
+    )
 
     fig.update_traces(showlegend=False, row=2, col=1)
 
-    fig.update_layout(height=800)
+    fig.update_layout(
+        height=800,
+        legend=dict(font=dict(size=14)),
+    )
+
     st.plotly_chart(fig, use_container_width=True)
 
 

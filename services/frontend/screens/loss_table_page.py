@@ -199,7 +199,7 @@ def plot_loss_per_csi_scatter() -> None:
                     x=data_table["Intervalo CSI"],
                     y=data_table["Perda média (%)"],
                     mode="markers",
-                    marker_color="#fab53b",
+                    marker_color="#2bace9",
                     hovertemplate=(
                         "Intervalo CSI: %{x}<br>"
                         "Número de dias: %{customdata[0]}<br>"
