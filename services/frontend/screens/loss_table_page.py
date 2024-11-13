@@ -9,13 +9,6 @@ import streamlit as st
 PLANTS_PARAM = json.load(open("resources/solar_plants.json"))
 
 
-def get_angle() -> None:
-    angle = st.session_state.angle
-    st.session_state.angle_table = st.session_state.loss_table[
-        st.session_state.loss_table["Angulação (°)"] == angle
-    ].reset_index(drop=True)
-
-
 def get_data() -> None:
     solar_plant = st.session_state.solar_plant
 
@@ -23,9 +16,51 @@ def get_data() -> None:
         PLANTS_PARAM[solar_plant]["datawarehouse"]["loss_table"]
     )
 
-    st.session_state.angle_list = st.session_state.loss_table["Angulação (°)"].unique()
 
-    get_angle()
+def create_grouped_csi_scatter(data: pd.DataFrame, title: str, color: str) -> go.Figure:
+    return go.Figure(
+        data=[
+            go.Scatter(
+                x=data["Intervalo CSI"],
+                y=data["Perda média (%)"],
+                mode="markers + lines",
+                marker_color=color,
+                hovertemplate=(
+                    "Intervalo CSI: %{x}<br>"
+                    "Número de dias: %{customdata[0]}<br>"
+                    "Perda mínima: %{customdata[1]}%<br>"
+                    "Perda média: %{y}%<extra></extra><br>"
+                    "Perda máxima: %{customdata[2]}%<br>"
+                ),
+                customdata=np.hstack(
+                    [
+                        data[
+                            [
+                                "Número de dias",
+                                "Perda mínima (%)",
+                                "Perda máxima (%)",
+                            ]
+                        ]
+                    ]
+                ),
+            )
+        ],
+        layout=go.Layout(
+            title=title,
+            titlefont=dict(size=16),
+            xaxis=dict(
+                title="Intervalo CSI",
+                title_font=dict(size=16),
+                tickfont=dict(size=16),
+                showgrid=True,
+            ),
+            yaxis=dict(
+                title="Perda média (%)",
+                title_font=dict(size=16),
+                tickfont=dict(size=16),
+            ),
+        ),
+    )
 
 
 def calculate_interval(loss_table: pd.DataFrame, step: float) -> pd.DataFrame:
@@ -109,7 +144,6 @@ def start_page() -> None:
     if st.session_state.first_start:
         st.session_state.plants_list = list(PLANTS_PARAM.keys())
         st.session_state.solar_plant = st.session_state.plants_list[0]
-        st.session_state.angle = 0
 
         st.session_state.first_start = False
 
@@ -117,22 +151,12 @@ def start_page() -> None:
 
 
 def header() -> None:
-    col = st.columns(2)
-
-    with col[0]:
-        st.selectbox(
-            "Selecione a usina",
-            st.session_state.plants_list,
-            key="solar_plant",
-            on_change=get_data,
-        )
-    with col[1]:
-        st.selectbox(
-            "Selecione o ângulo",
-            st.session_state.angle_list,
-            key="angle",
-            on_change=get_angle,
-        )
+    st.selectbox(
+        "Selecione a usina",
+        st.session_state.plants_list,
+        key="solar_plant",
+        on_change=get_data,
+    )
 
 
 def plot_loss_per_angle_bar() -> None:
@@ -198,70 +222,51 @@ def plot_loss_per_angle_bar() -> None:
 
 
 def plot_loss_per_csi_scatter() -> None:
-    st.title("Comportamento das perdas para diferentes intervalos de CSI")
+    def plot_scatter(
+        loss_table: pd.DataFrame,
+        title: str,
+        type: str,
+        color: str,
+        step: float = 0.1,
+    ) -> None:
+        if type not in ["interval", "quantile"]:
+            raise ValueError(f"Tipo inválido '{type}'. Use 'interval' ou 'quantile'.")
 
-    def create_scatter_plot(data_table: pd.DataFrame, title: str) -> go.Figure:
-        return go.Figure(
-            data=[
-                go.Scatter(
-                    x=data_table["Intervalo CSI"],
-                    y=data_table["Perda média (%)"],
-                    mode="markers + lines",
-                    marker_color="#2bace9",
-                    hovertemplate=(
-                        "Intervalo CSI: %{x}<br>"
-                        "Número de dias: %{customdata[0]}<br>"
-                        "Perda mínima: %{customdata[1]}%<br>"
-                        "Perda média: %{y}%<extra></extra><br>"
-                        "Perda máxima: %{customdata[2]}%<br>"
-                    ),
-                    customdata=np.hstack(
-                        [
-                            data_table[
-                                [
-                                    "Número de dias",
-                                    "Perda mínima (%)",
-                                    "Perda máxima (%)",
-                                ]
-                            ]
-                        ]
-                    ),
-                )
-            ],
-            layout=go.Layout(
-                title=title,
-                titlefont=dict(size=16),
-                xaxis=dict(
-                    title="Intervalo CSI",
-                    title_font=dict(size=16),
-                    tickfont=dict(size=16),
-                ),
-                yaxis=dict(
-                    title="Perda média (%)",
-                    title_font=dict(size=16),
-                    tickfont=dict(size=16),
-                ),
-            ),
-        )
+        for angle, col in zip([-60, 60, 0], st.columns(2) + [st.columns([1, 2, 1])[1]]):
+            angle_table = loss_table[loss_table["Angulação (°)"] == angle]
 
-    loss_table = st.session_state.angle_table
+            match (type):
+                case "interval":
+                    grouped_table = calculate_interval(angle_table, step)
+                case "quantile":
+                    grouped_table = calculcate_quantile(angle_table, step)
+
+            title_with_angle = f"{title} para um ângulo de {angle}°"
+
+            fig_interval = create_grouped_csi_scatter(
+                grouped_table, title_with_angle, color
+            )
+
+            with col:
+                st.plotly_chart(fig_interval, use_container_width=True)
+
+    loss_table = st.session_state.loss_table
 
     step = 0.1
-    quantile = 0.1
 
-    interval_table = calculate_interval(loss_table, step)
-    quantile_table = calculcate_quantile(loss_table, quantile)
-
-    fig_interval = create_scatter_plot(interval_table, f"Perda por intervalo de {step}")
-    fig_quantile = create_scatter_plot(
-        quantile_table, f"Perda por quantil de {quantile}"
+    st.title("Comportamento das perdas para intervalos de CSI")
+    plot_scatter(
+        loss_table, f"Perda por intervalo de {step}", "interval", "#2bace9", step
     )
 
-    col = st.columns(2)
-    with col[0]:
-        st.plotly_chart(fig_interval, use_container_width=True)
-    with col[1]:
-        st.plotly_chart(fig_quantile, use_container_width=True)
+    st.title("Comportamento das perdas para quantis de CSI")
+    plot_scatter(
+        loss_table,
+        f"Perda por quantil de {step * 100:.0f}%",
+        "quantile",
+        "#c8c3f8",
+        step,
+    )
 
 
 def loss_table_page() -> None:
