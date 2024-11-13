@@ -175,13 +175,21 @@ def plot_loss_per_angle_bar() -> None:
                         # Passa os dados customizados
                         customdata=np.stack([table["CSI"]], axis=-1),
                     )
-                ]
-            )
-
-            fig.update_layout(
-                xaxis_title="Angulação (°)",
-                yaxis_title="Perda (%)",
-                title=f"Perda por angulação ({table['Data'].values[0].strftime('%d/%m/%Y')})",
+                ],
+                layout=go.Layout(
+                    title=f"Perda por angulação ({table['Data'].values[0].strftime('%d/%m/%Y')})",
+                    titlefont=dict(size=16),
+                    xaxis=dict(
+                        title="Angulação (°)",
+                        title_font=dict(size=16),
+                        tickfont=dict(size=16),
+                    ),
+                    yaxis=dict(
+                        title="Perda (%)",
+                        title_font=dict(size=16),
+                        tickfont=dict(size=16),
+                    ),
+                ),
             )
 
             st.plotly_chart(fig, use_container_width=True)
@@ -198,7 +206,7 @@ def plot_loss_per_csi_scatter() -> None:
                 go.Scatter(
                     x=data_table["Intervalo CSI"],
                     y=data_table["Perda média (%)"],
-                    mode="markers",
+                    mode="markers + lines",
                     marker_color="#2bace9",
                     hovertemplate=(
                         "Intervalo CSI: %{x}<br>"
@@ -219,11 +227,21 @@ def plot_loss_per_csi_scatter() -> None:
                         ]
                     ),
                 )
-            ]
-        ).update_layout(
-            xaxis_title="Intervalo CSI",
-            yaxis_title="Perda média (%)",
-            title=title,
+            ],
+            layout=go.Layout(
+                title=title,
+                titlefont=dict(size=16),
+                xaxis=dict(
+                    title="Intervalo CSI",
+                    title_font=dict(size=16),
+                    tickfont=dict(size=16),
+                ),
+                yaxis=dict(
+                    title="Perda média (%)",
+                    title_font=dict(size=16),
+                    tickfont=dict(size=16),
+                ),
+            ),
         )
 
     loss_table = st.session_state.angle_table

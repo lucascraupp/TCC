@@ -109,6 +109,11 @@ def generate_temporal_series() -> go.Figure:
                 y=df[sensor],
                 name=sensor,
                 legendgroup=sensor,
+                hovertemplate=(
+                    f"<b>{sensor}</b>"
+                    f"<br>Timestamp: %{{x|%d/%m/%Y %H:%M}}<br>"
+                    f"Irradiância: %{{y}} W/m²"
+                ),
             )
             for sensor in df.columns
         ]
@@ -120,6 +125,11 @@ def generate_temporal_series() -> go.Figure:
                 name="GHI teórico (clearsky)",
                 line=dict(color="gray", width=1.5, dash="dash"),
                 legendgroup="GHI teórico",
+                hovertemplate=(
+                    "<b>GHI teórico</b>"
+                    f"<br>Timestamp: %{{x|%d/%m/%Y %H:%M}}<br>"
+                    f"Irradiância: %{{y}} W/m²"
+                ),
             ),
         ],
     )
