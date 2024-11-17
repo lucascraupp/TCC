@@ -108,7 +108,7 @@ def calculcate_quantile(loss_table: pd.DataFrame, quantile: float) -> pd.DataFra
             pd.DataFrame(
                 {
                     "Intervalo CSI": [
-                        f"[{table["CSI"].min():.2f}, {table["CSI"].max():.2f}]"
+                        f"[{table['CSI'].min():.2f}, {table['CSI'].max():.2f}]"
                     ],
                     "Número de dias": len(table),
                     "Perda mínima (%)": table["Perda (%)"].min(),
@@ -269,8 +269,63 @@ def plot_loss_per_csi_scatter() -> None:
     )
 
 
+def plot_loss_per_angle_for_one_csi_scatter() -> None:
+    st.title("Comportamento das perdas para diferentes ângulos")
+
+    loss_table = st.session_state.loss_table
+
+    loss_round = loss_table.copy()
+    loss_round["CSI"] = loss_round["CSI"].round(1)
+
+    for csi, col in zip([0.3, 0.5, 0.7, 1], st.columns(2) + st.columns(2)):
+        csi_table = loss_round[loss_round["CSI"] == csi]
+
+        fig = go.Figure(
+            data=[
+                go.Scatter(
+                    x=csi_table["Angulação (°)"],
+                    y=csi_table["Perda (%)"],
+                    mode="markers",
+                    marker_color=[
+                        "#FF6961" if value > 0 else "#55CBCD"
+                        for value in csi_table["Perda (%)"]
+                    ],
+                    # Adiciona a legenda ao passar o mouse
+                    hovertemplate=(
+                        "Data: %{customdata[0]}<br>"
+                        "Angulação: %{x}°<br>"
+                        "Perda: %{y}%<extra></extra>"
+                    ),
+                    # Passa os dados customizados no formato dia/mês/ano sem hora
+                    customdata=np.stack(
+                        [pd.to_datetime(csi_table["Data"]).dt.strftime("%d/%m/%Y")],
+                        axis=-1,
+                    ),
+                )
+            ],
+            layout=go.Layout(
+                title=f"Perda por angulação para CSI {csi}",
+                titlefont=dict(size=16),
+                xaxis=dict(
+                    title="Angulação (°)",
+                    title_font=dict(size=16),
+                    tickfont=dict(size=16),
+                ),
+                yaxis=dict(
+                    title="Perda (%)",
+                    title_font=dict(size=16),
+                    tickfont=dict(size=16),
+                ),
+            ),
+        )
+
+        with col:
+            st.plotly_chart(fig, use_container_width=True)
+
+
 def loss_table_page() -> None:
     start_page()
     header()
     plot_loss_per_angle_bar()
     plot_loss_per_csi_scatter()
+    plot_loss_per_angle_for_one_csi_scatter()
