@@ -160,7 +160,7 @@ def header() -> None:
 
 
 def plot_loss_per_angle_bar() -> None:
-    st.title("Comportamento das perdas para diferentes CSI's")
+    st.title("Comportamento das perdas para diferentes ângulos")
 
     loss_table = st.session_state.loss_table
 
@@ -270,7 +270,7 @@ def plot_loss_per_csi_scatter() -> None:
 
 
 def plot_loss_per_angle_for_one_csi_scatter() -> None:
-    st.title("Comportamento das perdas para diferentes ângulos")
+    st.title("Comportamento das perdas para diferentes ângulos para um CSI")
 
     loss_table = st.session_state.loss_table
 
