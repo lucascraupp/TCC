@@ -10,7 +10,7 @@ Repositório destinado para o desenvolvimento do meu Trabalho de Conclusão de C
 > **Observação**: Deverá ser adicionada a pasta `datalake` em `resources/`
 
 ## Instalação
-1. Instale a biblioteca `pvIFSC` na raiz do projeto
+1. Baixe a biblioteca `pvIFSC` na raiz do projeto
     ```bash
     git clone https://github.com/j-Lago/pvIFSC.git
     ```
