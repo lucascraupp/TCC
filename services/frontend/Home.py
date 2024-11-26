@@ -1,4 +1,5 @@
 import streamlit as st
+from screens.loss_table_page import loss_table_page
 from screens.pyranometer_page import pyranometer_page
 from streamlit_option_menu import option_menu
 
@@ -16,10 +17,12 @@ page = option_menu(
     options=[
         "Página inicial",
         "Piranômetros",
+        "Análise das perdas",
     ],
     icons=[
         "house",
         "sunrise",
+        "database-fill",
     ],
     default_index=0,
     orientation="horizontal",
@@ -36,3 +39,5 @@ if __name__ == "__main__":
             st.session_state.clear()
         case "Piranômetros":
             pyranometer_page()
+        case "Análise das perdas":
+            loss_table_page()

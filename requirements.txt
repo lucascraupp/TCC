@@ -6,4 +6,8 @@ plotly==5.24.1
 streamlit_option_menu==0.3.6
 ipykernel==6.29.5
 structlog==24.4.0
+torch==2.5.1
+tpot==0.12.2
+h2o==3.46.0.6
+ipywidgets==8.1.5
 ./pvIFSC
