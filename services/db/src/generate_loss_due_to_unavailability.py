@@ -81,6 +81,6 @@ def generate_loss_due_to_unavailability(solar_plant: str) -> None:
 
     path = PLANTS_PARAM[solar_plant]["datawarehouse"]["loss_due_to_unavailability"]
 
-    loss_table.to_parquet(path)
+    loss_due_to_unavailability.to_parquet(path)
 
     log.info("Dados salvos", filename=path)
