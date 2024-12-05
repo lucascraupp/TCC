@@ -18,7 +18,10 @@ MONTHS = {
 
 def get_data() -> None:
     data = st.session_state.data
+    loss_by_lib = st.session_state.loss_by_lib
     month = MONTHS[st.session_state.month]
+
+    data = data.merge(loss_by_lib, on="Data", how="left")
 
     if month != 0:
         loss_table = data[data["Data"].dt.month == month]
@@ -85,6 +88,42 @@ def start_page() -> None:
 
         st.session_state.data = data
 
+        ca_power_by_lib = pd.read_parquet(
+            PLANTS_PARAM["Hélio"]["datalake"]["ca_power_by_lib"]
+        )
+
+        ca_power_by_lib["Timestamp"] = pd.to_datetime(
+            ca_power_by_lib["Timestamp"]
+        ).dt.date
+        ca_power_by_lib = ca_power_by_lib.rename(columns={"Timestamp": "Data"})
+
+        day_sum = ca_power_by_lib.groupby("Data").agg(
+            {
+                "Potência com trackers travados": "sum",
+                "Potência sem trackers travados": "sum",
+            }
+        )
+
+        loss_by_lib = pd.DataFrame(
+            {
+                "Perda por indisponibilidade pela biblioteca (%)": round(
+                    abs(
+                        (
+                            day_sum["Potência sem trackers travados"]
+                            - day_sum["Potência com trackers travados"]
+                        )
+                        / day_sum["Potência sem trackers travados"]
+                    )
+                    * 100,
+                    2,
+                ),
+            }
+        ).reset_index()
+
+        loss_by_lib["Data"] = pd.to_datetime(loss_by_lib["Data"])
+
+        st.session_state.loss_by_lib = loss_by_lib
+
         st.session_state.first_start = False
 
         get_data()
@@ -105,7 +144,7 @@ def plot_day_loss_bar() -> None:
 
     st.title(f"Perda diária devido à indisponibilidade - {month}")
 
-    col = st.columns(2)
+    col = st.columns(3)
 
     with col[0]:
         loss_mean = round(loss_table["Perda por indisponibilidade (%)"].mean(), 2)
@@ -131,6 +170,19 @@ def plot_day_loss_bar() -> None:
             ),
             unsafe_allow_html=True,
         )
+    with col[2]:
+        loss_bib_mean = round(
+            loss_table["Perda por indisponibilidade pela biblioteca (%)"].mean(), 2
+        )
+
+        st.markdown(
+            generate_block(
+                loss_bib_mean,
+                f"Perda média calculada em relação à geração de {st.session_state.month}",
+                "#55CBCD",
+            ),
+            unsafe_allow_html=True,
+        )
 
     fig = go.Figure(
         data=[
@@ -147,6 +199,18 @@ def plot_day_loss_bar() -> None:
                 ),
                 customdata=loss_table[["CSI", "Porcentagem de indisponibilidade (%)"]],
             )
+        ]
+        + [
+            go.Bar(
+                x=loss_table["Data"],
+                y=loss_table["Perda por indisponibilidade pela biblioteca (%)"],
+                name="Perda calculada pela biblioteca (%)",
+                marker=dict(color="#55CBCD"),
+                hovertemplate=(
+                    "<b>Data</b>: %{x}<br>"
+                    "<b>Perda por indisponibilidade pela biblioteca</b>: %{y:.2f}%<extra></extra>"
+                ),
+            )
         ],
         layout=go.Layout(
             title="Perda diária devido à indisponibilidade de trackers",
@@ -157,7 +221,7 @@ def plot_day_loss_bar() -> None:
                 tickfont=dict(size=16),
             ),
             yaxis=dict(
-                title="Perda estimada (%)",
+                title="Perda por indisponibilidade (%)",
                 title_font=dict(size=16),
                 tickfont=dict(size=16),
             ),
