@@ -1,5 +1,6 @@
 import streamlit as st
 from screens.loss_table_page import loss_table_page
+from screens.method_test_page import method_test_page
 from screens.pyranometer_page import pyranometer_page
 from streamlit_option_menu import option_menu
 
@@ -18,11 +19,13 @@ page = option_menu(
         "Página inicial",
         "Piranômetros",
         "Análise das perdas",
+        "Comparação entre o método e a biblioteca",
     ],
     icons=[
         "house",
         "sunrise",
         "database-fill",
+        "bi-file-earmark-bar-graph",
     ],
     default_index=0,
     orientation="horizontal",
@@ -41,3 +44,5 @@ if __name__ == "__main__":
             pyranometer_page()
         case "Análise das perdas":
             loss_table_page()
+        case "Comparação entre o método e a biblioteca":
+            method_test_page()
